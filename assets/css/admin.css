@@ -1,0 +1,152 @@
+/* ── FiboSearch Enhancer Admin Styles ── */
+
+.fse-wrap {
+    max-width: 860px;
+    margin-top: 20px;
+}
+
+.fse-wrap h1 {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.fse-version {
+    font-size: 13px;
+    font-weight: 400;
+    color: #888;
+}
+
+/* ── Tabs ── */
+.fse-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #c3c4c7;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.fse-tab {
+    padding: 9px 16px;
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    color: #3c434a;
+    margin-right: 3px;
+    margin-bottom: -1px;
+    position: relative;
+    transition: background 0.1s;
+}
+
+.fse-tab:hover {
+    background: #fff;
+    color: #2271b1;
+}
+
+.fse-tab.active {
+    background: #fff;
+    border-bottom-color: #fff;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+/* ── Tab content panels ── */
+.fse-tab-content {
+    display: none;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-top: none;
+    padding: 20px 24px;
+}
+
+.fse-tab-content.active {
+    display: block;
+}
+
+/* ── Settings table ── */
+.fse-table th {
+    width: 220px;
+    font-weight: 600;
+    padding: 14px 10px 14px 0;
+    vertical-align: top;
+}
+
+.fse-table td {
+    padding: 12px 0;
+}
+
+.fse-table label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.fse-table label input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.fse-table .description {
+    margin-top: 6px;
+    margin-left: 24px;
+    color: #646970;
+    font-style: italic;
+}
+
+/* ── Synonyms ── */
+.fse-synonyms-list {
+    margin-bottom: 14px;
+}
+
+.fse-synonym-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fse-synonym-input {
+    width: 480px;
+    max-width: 100%;
+    font-family: monospace;
+}
+
+.fse-remove-synonym {
+    color: #b32d2e;
+    border-color: #b32d2e;
+    line-height: 1;
+}
+
+.fse-remove-synonym:hover {
+    background: #b32d2e;
+    color: #fff;
+    border-color: #b32d2e;
+}
+
+.fse-synonyms-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#fse-synonym-status {
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: opacity 0.3s;
+}
+
+#fse-synonym-status.fse-ok {
+    color: #008a00;
+    background: #edfaee;
+}
+
+#fse-synonym-status.fse-err {
+    color: #b32d2e;
+    background: #fde8e8;
+}
