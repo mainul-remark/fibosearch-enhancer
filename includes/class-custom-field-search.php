@@ -1,34 +1,47 @@
 <?php
 /**
- * Search inside configured custom meta fields.
+ * Search inside product custom meta fields.
  *
- * Uses FiboSearch's own join and search_or hooks so the custom-field
- * conditions live inside each search term's OR group — preserving
- * the correct AND-per-word logic for multi-word searches.
+ * Automatically searches ALL public meta fields (keys not starting with '_').
+ * WordPress/WooCommerce internal fields (_price, _stock, _sku, etc.) all use
+ * the underscore prefix convention, so excluding them keeps results clean
+ * without any manual configuration needed.
+ *
+ * Uses FiboSearch's own join and search_or hooks so conditions live inside
+ * each search term's OR group — preserving AND-per-word logic for multi-word searches.
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class FSE_CustomFieldSearch {
 
-    /** @var string[] Meta keys to search in */
-    private $meta_keys = [];
+    /*
+     * Manual meta key list — commented out.
+     * Now works automatically: searches all public (non-underscore-prefixed) meta fields.
+     *
+     * private $meta_keys = [];
+     */
 
     public function __construct() {
         if ( fse_get_option( 'custom_fields_enabled', '1' ) !== '1' ) return;
 
-        $raw = fse_get_option( 'custom_field_keys', '' );
-        if ( empty( $raw ) ) return;
-
-        $this->meta_keys = array_values( array_filter(
-            array_map( 'trim', explode( "\n", $raw ) )
-        ) );
-
-        if ( empty( $this->meta_keys ) ) return;
+        /*
+         * Manual meta key loading — commented out.
+         * No longer requires input; all public meta fields are searched automatically.
+         *
+         * $raw = fse_get_option( 'custom_field_keys', '' );
+         * if ( empty( $raw ) ) return;
+         *
+         * $this->meta_keys = array_values( array_filter(
+         *     array_map( 'trim', explode( "\n", $raw ) )
+         * ) );
+         *
+         * if ( empty( $this->meta_keys ) ) return;
+         */
 
         // FiboSearch fires these filters only inside isAjaxSearch() — no extra guard needed.
-        add_filter( 'dgwt/wcas/native/search_query/join',       [ $this, 'add_join' ] );
-        add_filter( 'dgwt/wcas/native/search_query/search_or',  [ $this, 'add_conditions' ], 10, 3 );
-        add_filter( 'dgwt/wcas/native/search_query/search_or',  [ $this, 'ensure_distinct' ], 10, 3 );
+        add_filter( 'dgwt/wcas/native/search_query/join',      [ $this, 'add_join' ] );
+        add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'add_conditions' ], 10, 3 );
+        add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'ensure_distinct' ], 10, 3 );
     }
 
     /**
@@ -42,9 +55,10 @@ class FSE_CustomFieldSearch {
     }
 
     /**
-     * Inject an OR condition for each search term that matches the configured
-     * custom fields. FiboSearch closes the current term's group with ')' after
-     * this filter returns, so we're safely inside that group.
+     * Automatically search all public meta fields (those whose key does NOT
+     * start with '_'). WordPress/WooCommerce internal fields (_price, _stock,
+     * _sku, etc.) all use the underscore prefix convention, so this safely
+     * targets only user-defined / plugin-defined custom fields.
      *
      * @param string $search  Accumulated SQL for the current term's OR group.
      * @param string $like    The LIKE pattern, e.g. '%keyword%'.
@@ -53,12 +67,23 @@ class FSE_CustomFieldSearch {
     public function add_conditions( $search, $like, $engine ) {
         global $wpdb;
 
-        $placeholders = implode( ',', array_fill( 0, count( $this->meta_keys ), '%s' ) );
-        $args         = array_merge( $this->meta_keys, [ $like ] );
+        /*
+         * Manual meta_key IN() condition — commented out.
+         * Replaced by the automatic NOT LIKE '\_%' filter below.
+         *
+         * $placeholders = implode( ',', array_fill( 0, count( $this->meta_keys ), '%s' ) );
+         * $args         = array_merge( $this->meta_keys, [ $like ] );
+         * $condition = $wpdb->prepare(
+         *     "(fse_cf.meta_key IN ({$placeholders}) AND fse_cf.meta_value LIKE %s)",
+         *     $args
+         * );
+         */
 
+        // Search all public meta fields automatically (keys not starting with '_')
+        // In $wpdb->prepare(): \\ = literal backslash, _ = underscore, %% = literal %
         $condition = $wpdb->prepare(
-            "(fse_cf.meta_key IN ({$placeholders}) AND fse_cf.meta_value LIKE %s)",
-            $args
+            "(fse_cf.meta_key NOT LIKE '\\_%%' AND fse_cf.meta_value LIKE %s)",
+            $like
         );
 
         return $search . " OR {$condition}";

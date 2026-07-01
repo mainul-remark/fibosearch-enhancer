@@ -10,8 +10,12 @@ function fse_opt( $key, $default = '1' ) {
 
     <nav class="fse-tabs" aria-label="Settings sections">
         <button class="fse-tab active" data-tab="features">Features</button>
+        <?php /* Custom Fields tab — commented out (auto-searches all public meta fields, no manual config needed)
         <button class="fse-tab" data-tab="custom-fields">Custom Fields</button>
+        */ ?>
+        <?php /* Synonyms tab — commented out (synonym groups managed programmatically via DB, not via UI)
         <button class="fse-tab" data-tab="synonyms">Synonyms / Related Words</button>
+        */ ?>
     </nav>
 
     <form method="post" action="options.php" id="fse-settings-form">
@@ -41,13 +45,23 @@ function fse_opt( $key, $default = '1' ) {
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row">Product Tag Search</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[tag_search_enabled]" value="1" <?php checked( fse_opt( 'tag_search_enabled' ) ); ?>>
+                            Find products by their <strong>product tags</strong>
+                        </label>
+                        <p class="description">e.g. searching "moisturizer" returns all products tagged <em>moisturizer</em>, even if the word isn't in the product title or description. FiboSearch natively only shows tags as archive links — this surfaces the actual products.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row">Custom Field Search</th>
                     <td>
                         <label>
                             <input type="checkbox" name="fse_settings[custom_fields_enabled]" value="1" <?php checked( fse_opt( 'custom_fields_enabled' ) ); ?>>
-                            Search inside configured <strong>custom meta fields</strong>
+                            Search inside <strong>all product custom meta fields</strong> automatically
                         </label>
-                        <p class="description">Configure which meta keys to search in the <em>Custom Fields</em> tab.</p>
+                        <p class="description">Searches all public meta fields (non-internal) without any manual configuration.</p>
                     </td>
                 </tr>
                 <tr>
@@ -55,9 +69,9 @@ function fse_opt( $key, $default = '1' ) {
                     <td>
                         <label>
                             <input type="checkbox" name="fse_settings[synonyms_enabled]" value="1" <?php checked( fse_opt( 'synonyms_enabled' ) ); ?>>
-                            Expand search to cover <strong>synonym groups</strong>
+                            Expand search to cover <strong>synonym &amp; related word groups</strong>
                         </label>
-                        <p class="description">e.g. searching "tv" also returns products containing "television" or "monitor". Configure groups in the <em>Synonyms</em> tab.</p>
+                        <p class="description">e.g. searching "lip balm" also returns products matching "chapstick", "lip butter", "lip care".</p>
                     </td>
                 </tr>
                 <tr>
@@ -85,7 +99,7 @@ function fse_opt( $key, $default = '1' ) {
             <?php submit_button( 'Save Settings' ); ?>
         </div>
 
-        <!-- ── CUSTOM FIELDS TAB ── -->
+        <?php /* ── CUSTOM FIELDS TAB — commented out (auto-searches all public meta fields, no manual input needed) ──
         <div class="fse-tab-content" id="tab-custom-fields">
             <p>Enter one <strong>meta key</strong> per line. The search will also look inside these fields.</p>
             <p class="description">
@@ -101,9 +115,10 @@ function fse_opt( $key, $default = '1' ) {
 
             <?php submit_button( 'Save Settings' ); ?>
         </div>
+        */ ?>
     </form>
 
-    <!-- ── SYNONYMS TAB (AJAX-managed, separate from WP settings form) ── -->
+    <?php /* ── SYNONYMS TAB — commented out (synonym groups managed programmatically via DB, functionality still active) ──
     <div class="fse-tab-content" id="tab-synonyms">
         <p>
             Each row is a <strong>synonym group</strong>. Enter terms separated by commas.<br>
@@ -121,4 +136,5 @@ function fse_opt( $key, $default = '1' ) {
             <span id="fse-synonym-status" role="status" aria-live="polite"></span>
         </div>
     </div>
+    */ ?>
 </div>

@@ -31,6 +31,7 @@ class FSE_Admin {
         $toggles = [
             'variation_sku_enabled',
             'attribute_search_enabled',
+            'tag_search_enabled',
             'custom_fields_enabled',
             'synonyms_enabled',
             'fuzzy_enabled',
@@ -42,7 +43,8 @@ class FSE_Admin {
             $clean[ $key ] = isset( $input[ $key ] ) ? '1' : '0';
         }
 
-        $clean['custom_field_keys'] = sanitize_textarea_field( $input['custom_field_keys'] ?? '' );
+        // Manual custom field keys — commented out (now auto-detects all public meta fields)
+        // $clean['custom_field_keys'] = sanitize_textarea_field( $input['custom_field_keys'] ?? '' );
 
         return $clean;
     }
