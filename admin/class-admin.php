@@ -33,6 +33,7 @@ class FSE_Admin {
             'attribute_search_enabled',
             'tag_search_enabled',
             'custom_fields_enabled',
+            'custom_taxonomy_search_enabled',
             'synonyms_enabled',
             'fuzzy_enabled',
             'score_boost_enabled',

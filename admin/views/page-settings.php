@@ -66,6 +66,16 @@ function fse_opt( $key, $default = '1' ) {
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row">Custom Taxonomy Search</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[custom_taxonomy_search_enabled]" value="1" <?php checked( fse_opt( 'custom_taxonomy_search_enabled' ) ); ?>>
+                            Search products by <strong>brand, age range, skin type, and keyword</strong> taxonomy terms
+                        </label>
+                        <p class="description">e.g. searching "sensitive" finds products tagged with the Skin Type term "Sensitive", even if that word isn't in the title. Only taxonomies that actually exist on this site are searched.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row">Synonym / Related Word Search</th>
                     <td>
                         <label>

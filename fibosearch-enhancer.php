@@ -27,6 +27,7 @@ function fse_init() {
     require_once FSE_DIR . 'includes/class-attribute-search.php';
     require_once FSE_DIR . 'includes/class-tag-search.php';
     require_once FSE_DIR . 'includes/class-custom-field-search.php';
+    require_once FSE_DIR . 'includes/class-custom-taxonomy-search.php';
     require_once FSE_DIR . 'includes/class-synonym-search.php';
     require_once FSE_DIR . 'includes/class-fuzzy-search.php';
     require_once FSE_DIR . 'includes/class-score-boost.php';
@@ -37,6 +38,7 @@ function fse_init() {
     new FSE_AttributeSearch();
     new FSE_TagSearch();
     new FSE_CustomFieldSearch();
+    new FSE_CustomTaxonomySearch();
     new FSE_SynonymSearch();
     new FSE_FuzzySearch();
     new FSE_ScoreBoost();
