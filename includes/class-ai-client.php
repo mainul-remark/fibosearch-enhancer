@@ -111,7 +111,7 @@ class FSE_AI_Client {
             "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.\n";
 
         foreach ( self::INTENT_FIELDS as $field ) {
-            $values = array_slice( array_values( array_filter( $taxonomy_terms[ $field ] ?? [] ) ), 0, 80 );
+            $values = array_slice( array_values( array_filter( $taxonomy_terms[ $field ] ?? [] ) ), 0, 300 );
 
             if ( ! empty( $values ) ) {
                 $prompt .= "\"{$field}\" MUST be either null, or copied EXACTLY (same spelling/casing) from this list — never invent a value that isn't in this list:\n" .
