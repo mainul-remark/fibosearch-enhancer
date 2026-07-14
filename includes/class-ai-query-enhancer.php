@@ -91,8 +91,15 @@ class FSE_AIQueryEnhancer {
     }
 
     /**
-     * Add OR conditions for the AI-corrected term and each synonym, same
-     * SQL-building style as FSE_SynonymSearch::add_conditions.
+     * Add OR conditions for the AI-corrected term and each synonym.
+     *
+     * Deliberately narrower than FSE_SynonymSearch::add_conditions: matches
+     * only title + excerpt, not post_content. AI synonyms are generated
+     * per-query and unreviewed (unlike hand-curated synonym groups), so
+     * matching against full product descriptions is too loose — a generic
+     * word appearing anywhere in a long description pulls in unrelated
+     * products. Title/excerpt are short and targeted enough that a match
+     * there is meaningful.
      *
      * @param string $search  Accumulated SQL for the current term's OR group.
      * @param string $like    The LIKE pattern for the current term, e.g. '%runing%'.
@@ -118,8 +125,8 @@ class FSE_AIQueryEnhancer {
             $like_pattern = '%' . $wpdb->esc_like( $extra_term ) . '%';
 
             $condition = $wpdb->prepare(
-                "({$wpdb->posts}.post_title LIKE %s OR {$wpdb->posts}.post_content LIKE %s OR {$wpdb->posts}.post_excerpt LIKE %s)",
-                $like_pattern, $like_pattern, $like_pattern
+                "({$wpdb->posts}.post_title LIKE %s OR {$wpdb->posts}.post_excerpt LIKE %s)",
+                $like_pattern, $like_pattern
             );
 
             $search .= " OR {$condition}";

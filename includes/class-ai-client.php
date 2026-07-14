@@ -93,7 +93,7 @@ class FSE_AI_Client {
             "You are a WooCommerce store search assistant. A shopper searched for: \"{$keyword}\"\n\n" .
             "Return ONLY strict JSON (no markdown, no code fences, no extra text) with this exact shape:\n" .
             '{"corrected": "typo-corrected version of the query", "synonyms": ["up to 5 related search terms"], "category": "best matching category name from the list below, or null if unclear"}' . "\n\n" .
-            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" are single words or short phrases a shopper might search instead.";
+            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.";
 
         $category_names = array_slice( array_values( array_filter( $category_names ) ), 0, 80 );
 
@@ -254,9 +254,18 @@ class FSE_AI_Client {
         $synonyms = [];
         if ( isset( $data['synonyms'] ) && is_array( $data['synonyms'] ) ) {
             foreach ( $data['synonyms'] as $synonym ) {
-                if ( is_string( $synonym ) && '' !== trim( $synonym ) ) {
-                    $synonyms[] = sanitize_text_field( $synonym );
-                }
+                if ( ! is_string( $synonym ) || '' === trim( $synonym ) ) continue;
+
+                $synonym = sanitize_text_field( $synonym );
+
+                // Drop overly generic single-word synonyms (e.g. "care",
+                // "mens") — they LIKE-match almost any product description
+                // and pull in irrelevant results. Keep multi-word phrases
+                // and longer single words, which are specific enough to be
+                // useful search terms on their own.
+                if ( false === strpos( trim( $synonym ), ' ' ) && mb_strlen( $synonym ) < 6 ) continue;
+
+                $synonyms[] = $synonym;
             }
         }
         $synonyms = array_slice( array_values( array_unique( $synonyms ) ), 0, 5 );
