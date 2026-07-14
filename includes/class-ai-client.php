@@ -17,20 +17,19 @@ class FSE_AI_Client {
      * Fetch AI query data for a keyword. Returns null if no vendor is
      * configured, or if every configured vendor fails/times out.
      *
-     * @param string[] $category_names Real store category names to ground
-     *                                  the AI's category guess against, so
-     *                                  it names an actual taxonomy term
-     *                                  instead of hallucinating one.
-     * @return array{corrected:string, synonyms:string[], category:?string}|null
+     * @param array<string, string[]> $taxonomy_terms Real term names per
+     *        intent field (see build_prompt()), used to ground the AI's
+     *        guesses so it can't invent values that don't exist.
+     * @return array{corrected:string, synonyms:string[], intent:array<string,?string>}|null
      */
-    public function fetch( string $keyword, array $category_names = [] ): ?array {
+    public function fetch( string $keyword, array $taxonomy_terms = [] ): ?array {
         $keyword = trim( $keyword );
         if ( '' === $keyword ) return null;
 
         $timeout = (float) fse_get_option( 'ai_timeout_seconds', '1.5' );
         if ( $timeout <= 0 ) $timeout = 1.5;
 
-        $prompt  = $this->build_prompt( $keyword, $category_names );
+        $prompt  = $this->build_prompt( $keyword, $taxonomy_terms );
         $multi   = curl_multi_init();
         $handles = [];
 
@@ -88,20 +87,38 @@ class FSE_AI_Client {
         return $result;
     }
 
-    private function build_prompt( string $keyword, array $category_names = [] ): string {
+    /** Intent fields the AI is asked to detect, beyond corrected/synonyms. */
+    const INTENT_FIELDS = [ 'category', 'brand', 'age_range', 'skin_type' ];
+
+    /**
+     * @param string $keyword
+     * @param array<string, string[]> $taxonomy_terms Real term names per
+     *        intent field (e.g. ['category' => [...], 'brand' => [...]]),
+     *        used to ground each guess in the store's actual taxonomy so
+     *        the AI can't invent values that don't exist.
+     */
+    private function build_prompt( string $keyword, array $taxonomy_terms = [] ): string {
+        $shape = '{"corrected": "typo-corrected version of the query", "synonyms": ["up to 5 related search terms"]';
+        foreach ( self::INTENT_FIELDS as $field ) {
+            $shape .= ", \"{$field}\": \"best matching {$field} value, or null\"";
+        }
+        $shape .= '}';
+
         $prompt =
             "You are a WooCommerce store search assistant. A shopper searched for: \"{$keyword}\"\n\n" .
             "Return ONLY strict JSON (no markdown, no code fences, no extra text) with this exact shape:\n" .
-            '{"corrected": "typo-corrected version of the query", "synonyms": ["up to 5 related search terms"], "category": "best matching category name from the list below, or null if unclear"}' . "\n\n" .
-            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.";
+            $shape . "\n\n" .
+            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.\n";
 
-        $category_names = array_slice( array_values( array_filter( $category_names ) ), 0, 80 );
+        foreach ( self::INTENT_FIELDS as $field ) {
+            $values = array_slice( array_values( array_filter( $taxonomy_terms[ $field ] ?? [] ) ), 0, 80 );
 
-        if ( ! empty( $category_names ) ) {
-            $prompt .= " \"category\" MUST be either null, or copied EXACTLY (same spelling/casing) from this list of the store's real categories — never invent a category name that isn't in this list:\n" .
-                implode( ', ', $category_names );
-        } else {
-            $prompt .= ' "category" is your single best guess at a product category name for this query, or null if you\'re not confident.';
+            if ( ! empty( $values ) ) {
+                $prompt .= "\"{$field}\" MUST be either null, or copied EXACTLY (same spelling/casing) from this list — never invent a value that isn't in this list:\n" .
+                    implode( ', ', $values ) . "\n";
+            } else {
+                $prompt .= "\"{$field}\" must always be null (not applicable for this store).\n";
+            }
         }
 
         return $prompt;
@@ -270,15 +287,17 @@ class FSE_AI_Client {
         }
         $synonyms = array_slice( array_values( array_unique( $synonyms ) ), 0, 5 );
 
-        $category = null;
-        if ( isset( $data['category'] ) && is_string( $data['category'] ) && '' !== trim( $data['category'] ) ) {
-            $category = sanitize_text_field( $data['category'] );
+        $intent = [];
+        foreach ( self::INTENT_FIELDS as $field ) {
+            $intent[ $field ] = ( isset( $data[ $field ] ) && is_string( $data[ $field ] ) && '' !== trim( $data[ $field ] ) )
+                ? sanitize_text_field( $data[ $field ] )
+                : null;
         }
 
         return [
             'corrected' => $corrected,
             'synonyms'  => $synonyms,
-            'category'  => $category,
+            'intent'    => $intent,
         ];
     }
 }

@@ -1,8 +1,8 @@
 <?php
 /**
  * AI-assisted query understanding: typo correction, synonym expansion, and
- * category-intent boosting, layered on top of FiboSearch's existing SQL
- * search and score-boost hooks.
+ * multi-taxonomy intent boosting, layered on top of FiboSearch's existing
+ * SQL search and score-boost hooks.
  *
  * Results are cached per normalized keyword in a WP transient. Any AI
  * failure (no vendor configured, timeout, malformed response) is treated as
@@ -16,29 +16,46 @@ class FSE_AIQueryEnhancer {
     /** Minimum keyword length to attempt an AI call */
     const MIN_LENGTH = 3;
 
-    /** Score boost applied when a product belongs to the AI-detected category */
-    const AI_CATEGORY_BOOST = 25;
+    /**
+     * Maps FSE_AI_Client::INTENT_FIELDS (the AI's JSON field names) to the
+     * real WordPress taxonomy slug each one represents.
+     */
+    const TAXONOMY_MAP = [
+        'category'  => 'product_cat',
+        'brand'     => 'brand',
+        'age_range' => 'age-range',
+        'skin_type' => 'skin-type',
+    ];
+
+    /** Score boost per matching taxonomy, keyed by real taxonomy slug. */
+    const TAXONOMY_BOOSTS = [
+        'product_cat' => 25,
+        'brand'       => 15,
+        'age-range'   => 15,
+        'skin-type'   => 15,
+    ];
 
     /** @var FSE_AI_Client */
     private $client;
 
     /**
      * Per-request cache of resolved AI data, keyed by normalized keyword.
-     * Value is an array (see FSE_AI_Client::normalize_result shape, plus
-     * 'category_term_id') or null when no AI data is available.
+     * Value is an array with 'corrected', 'synonyms', and 'term_ids'
+     * (taxonomy slug => term_id|null), or null when no AI data is
+     * available.
      *
      * @var array<string, array|null>
      */
     private $data_by_keyword = [];
 
     /**
-     * Cached list of real product_cat names, fetched once per request (and
-     * cached across requests in a transient) — passed to the AI so its
-     * category guess is grounded in actual store taxonomy.
+     * Cached real term names per intent field, fetched once per request
+     * (and cached across requests in a transient) — passed to the AI so
+     * its guesses are grounded in actual store taxonomy.
      *
-     * @var string[]|null
+     * @var array<string, string[]>|null
      */
-    private $category_names = null;
+    private $taxonomy_terms = null;
 
     public function __construct() {
         if ( '1' !== fse_get_option( 'ai_enabled', '0' ) ) return;
@@ -51,7 +68,7 @@ class FSE_AIQueryEnhancer {
     }
 
     /**
-     * Resolve (from cache or a live AI call) the corrected/synonym/category
+     * Resolve (from cache or a live AI call) the corrected/synonym/intent
      * data for the current search phrase. Does not mutate the phrase.
      */
     public function build_ai_data( $keyword ) {
@@ -68,17 +85,22 @@ class FSE_AIQueryEnhancer {
             return $keyword;
         }
 
-        $raw = $this->client->fetch( $normalized, $this->get_category_names() );
+        $raw = $this->client->fetch( $normalized, $this->get_taxonomy_terms() );
 
         if ( null === $raw ) {
             $this->data_by_keyword[ $normalized ] = null;
             return $keyword;
         }
 
+        $term_ids = [];
+        foreach ( self::TAXONOMY_MAP as $field => $taxonomy ) {
+            $term_ids[ $taxonomy ] = $this->resolve_term( $raw['intent'][ $field ] ?? null, $taxonomy );
+        }
+
         $resolved = [
-            'corrected'        => $raw['corrected'],
-            'synonyms'         => $raw['synonyms'],
-            'category_term_id' => $this->resolve_category( $raw['category'] ),
+            'corrected' => $raw['corrected'],
+            'synonyms'  => $raw['synonyms'],
+            'term_ids'  => $term_ids,
         ];
 
         $ttl_hours = (int) fse_get_option( 'ai_cache_ttl_hours', '24' );
@@ -136,7 +158,9 @@ class FSE_AIQueryEnhancer {
     }
 
     /**
-     * Boost products belonging to the AI-detected category for this query.
+     * Boost products belonging to any AI-detected taxonomy term for this
+     * query — category, brand, age range, and/or skin type. A product can
+     * match more than one and stack boosts.
      *
      * @param float    $score    Current relevance score (higher = better).
      * @param string   $keyword  The search phrase.
@@ -147,57 +171,71 @@ class FSE_AIQueryEnhancer {
         $normalized = strtolower( trim( (string) $keyword ) );
         $data       = $this->data_by_keyword[ $normalized ] ?? null;
 
-        if ( empty( $data ) || empty( $data['category_term_id'] ) ) return $score;
+        if ( empty( $data ) || empty( $data['term_ids'] ) ) return $score;
 
-        if ( has_term( (int) $data['category_term_id'], 'product_cat', $post_id ) ) {
-            $score += self::AI_CATEGORY_BOOST;
+        foreach ( $data['term_ids'] as $taxonomy => $term_id ) {
+            if ( empty( $term_id ) ) continue;
+
+            if ( has_term( (int) $term_id, $taxonomy, $post_id ) ) {
+                $score += self::TAXONOMY_BOOSTS[ $taxonomy ] ?? 10;
+            }
         }
 
         return $score;
     }
 
     /**
-     * Fetch real product_cat names to ground the AI's category guess.
+     * Fetch real term names per intent field to ground the AI's guesses.
      * Cached per-request in a property and across requests in a transient
-     * (category lists change rarely, so a 12h TTL avoids a get_terms() call
-     * on every search).
+     * (taxonomy term lists change rarely, so a 12h TTL avoids repeated
+     * get_terms() calls on every search). Taxonomies not registered on this
+     * install resolve to an empty list for that field.
      *
-     * @return string[]
+     * @return array<string, string[]>
      */
-    private function get_category_names(): array {
-        if ( null !== $this->category_names ) return $this->category_names;
+    private function get_taxonomy_terms(): array {
+        if ( null !== $this->taxonomy_terms ) return $this->taxonomy_terms;
 
-        $cached = get_transient( 'fse_ai_category_names' );
+        $cached = get_transient( 'fse_ai_taxonomy_terms' );
         if ( false !== $cached ) {
-            $this->category_names = $cached;
-            return $this->category_names;
+            $this->taxonomy_terms = $cached;
+            return $this->taxonomy_terms;
         }
 
-        $terms = get_terms( [
-            'taxonomy'   => 'product_cat',
-            'hide_empty' => true,
-            'fields'     => 'names',
-        ] );
+        $terms = [];
+        foreach ( self::TAXONOMY_MAP as $field => $taxonomy ) {
+            if ( ! taxonomy_exists( $taxonomy ) ) {
+                $terms[ $field ] = [];
+                continue;
+            }
 
-        $names = ( ! is_wp_error( $terms ) && is_array( $terms ) ) ? array_values( $terms ) : [];
+            $found = get_terms( [
+                'taxonomy'   => $taxonomy,
+                'hide_empty' => true,
+                'fields'     => 'names',
+            ] );
 
-        set_transient( 'fse_ai_category_names', $names, 12 * HOUR_IN_SECONDS );
-        $this->category_names = $names;
+            $terms[ $field ] = ( ! is_wp_error( $found ) && is_array( $found ) ) ? array_values( $found ) : [];
+        }
 
-        return $names;
+        set_transient( 'fse_ai_taxonomy_terms', $terms, 12 * HOUR_IN_SECONDS );
+        $this->taxonomy_terms = $terms;
+
+        return $terms;
     }
 
     /**
-     * Resolve an AI-guessed category name to a real product_cat term ID.
-     * Returns null if there's no matching real category, so a hallucinated
-     * guess can never affect ranking.
+     * Resolve an AI-guessed value to a real term ID in the given taxonomy.
+     * Returns null if there's no matching real term (or the taxonomy
+     * doesn't exist on this install), so a hallucinated guess can never
+     * affect ranking.
      */
-    private function resolve_category( ?string $name ): ?int {
-        if ( empty( $name ) ) return null;
+    private function resolve_term( ?string $name, string $taxonomy ): ?int {
+        if ( empty( $name ) || ! taxonomy_exists( $taxonomy ) ) return null;
 
-        $term = get_term_by( 'name', $name, 'product_cat' );
+        $term = get_term_by( 'name', $name, $taxonomy );
         if ( ! $term ) {
-            $term = get_term_by( 'slug', sanitize_title( $name ), 'product_cat' );
+            $term = get_term_by( 'slug', sanitize_title( $name ), $taxonomy );
         }
 
         return $term ? (int) $term->term_id : null;
