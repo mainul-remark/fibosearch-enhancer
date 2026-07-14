@@ -196,8 +196,8 @@ function fse_opt( $key, $default = '1' ) {
                 <tr>
                     <th scope="row"><label for="fse_ai_groq_model">Model</label></th>
                     <td>
-                        <input type="text" id="fse_ai_groq_model" name="fse_settings[ai_groq_model]" value="<?php echo esc_attr( fse_get_option( 'ai_groq_model', 'llama-3.1-8b-instant' ) ); ?>" class="regular-text">
-                        <p class="description">Default: llama-3.1-8b-instant</p>
+                        <input type="text" id="fse_ai_groq_model" name="fse_settings[ai_groq_model]" value="<?php echo esc_attr( fse_get_option( 'ai_groq_model', 'llama-3.3-70b-versatile' ) ); ?>" class="regular-text">
+                        <p class="description">Default: llama-3.3-70b-versatile (stronger than the 8b-instant model, still fast on Groq's infra)</p>
                     </td>
                 </tr>
                 <tr>

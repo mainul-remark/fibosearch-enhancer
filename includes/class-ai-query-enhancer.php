@@ -31,6 +31,15 @@ class FSE_AIQueryEnhancer {
      */
     private $data_by_keyword = [];
 
+    /**
+     * Cached list of real product_cat names, fetched once per request (and
+     * cached across requests in a transient) — passed to the AI so its
+     * category guess is grounded in actual store taxonomy.
+     *
+     * @var string[]|null
+     */
+    private $category_names = null;
+
     public function __construct() {
         if ( '1' !== fse_get_option( 'ai_enabled', '0' ) ) return;
 
@@ -59,7 +68,7 @@ class FSE_AIQueryEnhancer {
             return $keyword;
         }
 
-        $raw = $this->client->fetch( $normalized );
+        $raw = $this->client->fetch( $normalized, $this->get_category_names() );
 
         if ( null === $raw ) {
             $this->data_by_keyword[ $normalized ] = null;
@@ -138,6 +147,37 @@ class FSE_AIQueryEnhancer {
         }
 
         return $score;
+    }
+
+    /**
+     * Fetch real product_cat names to ground the AI's category guess.
+     * Cached per-request in a property and across requests in a transient
+     * (category lists change rarely, so a 12h TTL avoids a get_terms() call
+     * on every search).
+     *
+     * @return string[]
+     */
+    private function get_category_names(): array {
+        if ( null !== $this->category_names ) return $this->category_names;
+
+        $cached = get_transient( 'fse_ai_category_names' );
+        if ( false !== $cached ) {
+            $this->category_names = $cached;
+            return $this->category_names;
+        }
+
+        $terms = get_terms( [
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => true,
+            'fields'     => 'names',
+        ] );
+
+        $names = ( ! is_wp_error( $terms ) && is_array( $terms ) ) ? array_values( $terms ) : [];
+
+        set_transient( 'fse_ai_category_names', $names, 12 * HOUR_IN_SECONDS );
+        $this->category_names = $names;
+
+        return $names;
     }
 
     /**

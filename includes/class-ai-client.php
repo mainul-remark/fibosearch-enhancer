@@ -17,16 +17,20 @@ class FSE_AI_Client {
      * Fetch AI query data for a keyword. Returns null if no vendor is
      * configured, or if every configured vendor fails/times out.
      *
+     * @param string[] $category_names Real store category names to ground
+     *                                  the AI's category guess against, so
+     *                                  it names an actual taxonomy term
+     *                                  instead of hallucinating one.
      * @return array{corrected:string, synonyms:string[], category:?string}|null
      */
-    public function fetch( string $keyword ): ?array {
+    public function fetch( string $keyword, array $category_names = [] ): ?array {
         $keyword = trim( $keyword );
         if ( '' === $keyword ) return null;
 
         $timeout = (float) fse_get_option( 'ai_timeout_seconds', '1.5' );
         if ( $timeout <= 0 ) $timeout = 1.5;
 
-        $prompt  = $this->build_prompt( $keyword );
+        $prompt  = $this->build_prompt( $keyword, $category_names );
         $multi   = curl_multi_init();
         $handles = [];
 
@@ -56,7 +60,7 @@ class FSE_AI_Client {
         if ( '1' === fse_get_option( 'ai_groq_enabled', '0' ) ) {
             $key = (string) fse_get_option( 'ai_groq_key', '' );
             if ( '' !== $key ) {
-                $model = (string) fse_get_option( 'ai_groq_model', 'llama-3.1-8b-instant' );
+                $model = (string) fse_get_option( 'ai_groq_model', 'llama-3.3-70b-versatile' );
                 $handles['groq'] = $this->make_openai_compat_curl(
                     'https://api.groq.com/openai/v1/chat/completions',
                     $key,
@@ -84,12 +88,23 @@ class FSE_AI_Client {
         return $result;
     }
 
-    private function build_prompt( string $keyword ): string {
-        return
+    private function build_prompt( string $keyword, array $category_names = [] ): string {
+        $prompt =
             "You are a WooCommerce store search assistant. A shopper searched for: \"{$keyword}\"\n\n" .
             "Return ONLY strict JSON (no markdown, no code fences, no extra text) with this exact shape:\n" .
-            '{"corrected": "typo-corrected version of the query", "synonyms": ["up to 5 related search terms"], "category": "best single-guess product category name, or null if unclear"}' . "\n\n" .
-            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" are single words or short phrases a shopper might search instead. \"category\" is your single best guess at a product category name for this query, or null if you're not confident.";
+            '{"corrected": "typo-corrected version of the query", "synonyms": ["up to 5 related search terms"], "category": "best matching category name from the list below, or null if unclear"}' . "\n\n" .
+            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" are single words or short phrases a shopper might search instead.";
+
+        $category_names = array_slice( array_values( array_filter( $category_names ) ), 0, 80 );
+
+        if ( ! empty( $category_names ) ) {
+            $prompt .= " \"category\" MUST be either null, or copied EXACTLY (same spelling/casing) from this list of the store's real categories — never invent a category name that isn't in this list:\n" .
+                implode( ', ', $category_names );
+        } else {
+            $prompt .= ' "category" is your single best guess at a product category name for this query, or null if you\'re not confident.';
+        }
+
+        return $prompt;
     }
 
     private function ca_bundle(): string {
