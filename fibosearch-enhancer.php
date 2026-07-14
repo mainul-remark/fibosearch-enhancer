@@ -30,6 +30,8 @@ function fse_init() {
     require_once FSE_DIR . 'includes/class-synonym-search.php';
     require_once FSE_DIR . 'includes/class-fuzzy-search.php';
     require_once FSE_DIR . 'includes/class-score-boost.php';
+    require_once FSE_DIR . 'includes/class-ai-client.php';
+    require_once FSE_DIR . 'includes/class-ai-query-enhancer.php';
 
     new FSE_VariationSkuSearch();
     new FSE_AttributeSearch();
@@ -38,6 +40,7 @@ function fse_init() {
     new FSE_SynonymSearch();
     new FSE_FuzzySearch();
     new FSE_ScoreBoost();
+    new FSE_AIQueryEnhancer();
 
     if ( is_admin() ) {
         require_once FSE_DIR . 'admin/class-admin.php';
