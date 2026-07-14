@@ -36,12 +36,33 @@ class FSE_Admin {
             'synonyms_enabled',
             'fuzzy_enabled',
             'score_boost_enabled',
+            'ai_enabled',
+            'ai_gemini_enabled',
+            'ai_openrouter_enabled',
+            'ai_groq_enabled',
         ];
 
         $clean = [];
         foreach ( $toggles as $key ) {
             $clean[ $key ] = isset( $input[ $key ] ) ? '1' : '0';
         }
+
+        $text_fields = [
+            'ai_gemini_key',
+            'ai_openrouter_key',
+            'ai_openrouter_model',
+            'ai_groq_key',
+            'ai_groq_model',
+        ];
+        foreach ( $text_fields as $key ) {
+            $clean[ $key ] = isset( $input[ $key ] ) ? sanitize_text_field( $input[ $key ] ) : '';
+        }
+
+        $ttl = isset( $input['ai_cache_ttl_hours'] ) ? (int) $input['ai_cache_ttl_hours'] : 24;
+        $clean['ai_cache_ttl_hours'] = (string) max( 1, min( 168, $ttl ) );
+
+        $timeout = isset( $input['ai_timeout_seconds'] ) ? (float) $input['ai_timeout_seconds'] : 1.5;
+        $clean['ai_timeout_seconds'] = (string) max( 0.5, min( 5.0, $timeout ) );
 
         // Manual custom field keys — commented out (now auto-detects all public meta fields)
         // $clean['custom_field_keys'] = sanitize_textarea_field( $input['custom_field_keys'] ?? '' );

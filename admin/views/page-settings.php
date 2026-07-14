@@ -10,6 +10,7 @@ function fse_opt( $key, $default = '1' ) {
 
     <nav class="fse-tabs" aria-label="Settings sections">
         <button class="fse-tab active" data-tab="features">Features</button>
+        <button class="fse-tab" data-tab="ai-search">AI Search</button>
         <?php /* Custom Fields tab — commented out (auto-searches all public meta fields, no manual config needed)
         <button class="fse-tab" data-tab="custom-fields">Custom Fields</button>
         */ ?>
@@ -116,6 +117,110 @@ function fse_opt( $key, $default = '1' ) {
             <?php submit_button( 'Save Settings' ); ?>
         </div>
         */ ?>
+
+        <!-- ── AI SEARCH TAB ── -->
+        <div class="fse-tab-content" id="tab-ai-search">
+            <table class="form-table fse-table">
+                <tr>
+                    <th scope="row">Enable AI Query Enhancement</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[ai_enabled]" value="1" <?php checked( fse_opt( 'ai_enabled', '0' ) ); ?>>
+                            Use AI to correct typos, expand synonyms, and detect category intent on each search
+                        </label>
+                        <p class="description">Requires at least one vendor below to be enabled with a valid API key. If the AI call fails or times out, search silently falls back to the Features above.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th colspan="2"><h2 style="margin:16px 0 4px;padding-bottom:4px;border-bottom:1px solid #c3c4c7;">Google Gemini</h2></th>
+                </tr>
+                <tr>
+                    <th scope="row">Active</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[ai_gemini_enabled]" value="1" <?php checked( fse_opt( 'ai_gemini_enabled', '0' ) ); ?>>
+                            Enable Gemini
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_gemini_key">API Key</label></th>
+                    <td>
+                        <input type="password" id="fse_ai_gemini_key" name="fse_settings[ai_gemini_key]" value="<?php echo esc_attr( fse_get_option( 'ai_gemini_key', '' ) ); ?>" class="regular-text" autocomplete="off">
+                        <p class="description">Model used: gemini-2.5-flash</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th colspan="2"><h2 style="margin:16px 0 4px;padding-bottom:4px;border-bottom:1px solid #c3c4c7;">OpenRouter</h2></th>
+                </tr>
+                <tr>
+                    <th scope="row">Active</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[ai_openrouter_enabled]" value="1" <?php checked( fse_opt( 'ai_openrouter_enabled', '0' ) ); ?>>
+                            Enable OpenRouter
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_openrouter_key">API Key</label></th>
+                    <td>
+                        <input type="password" id="fse_ai_openrouter_key" name="fse_settings[ai_openrouter_key]" value="<?php echo esc_attr( fse_get_option( 'ai_openrouter_key', '' ) ); ?>" class="regular-text" autocomplete="off">
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_openrouter_model">Model</label></th>
+                    <td>
+                        <input type="text" id="fse_ai_openrouter_model" name="fse_settings[ai_openrouter_model]" value="<?php echo esc_attr( fse_get_option( 'ai_openrouter_model', 'meta-llama/llama-3.1-8b-instruct:free' ) ); ?>" class="regular-text">
+                        <p class="description">Default: meta-llama/llama-3.1-8b-instruct:free</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th colspan="2"><h2 style="margin:16px 0 4px;padding-bottom:4px;border-bottom:1px solid #c3c4c7;">Groq</h2></th>
+                </tr>
+                <tr>
+                    <th scope="row">Active</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[ai_groq_enabled]" value="1" <?php checked( fse_opt( 'ai_groq_enabled', '0' ) ); ?>>
+                            Enable Groq
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_groq_key">API Key</label></th>
+                    <td>
+                        <input type="password" id="fse_ai_groq_key" name="fse_settings[ai_groq_key]" value="<?php echo esc_attr( fse_get_option( 'ai_groq_key', '' ) ); ?>" class="regular-text" autocomplete="off">
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_groq_model">Model</label></th>
+                    <td>
+                        <input type="text" id="fse_ai_groq_model" name="fse_settings[ai_groq_model]" value="<?php echo esc_attr( fse_get_option( 'ai_groq_model', 'llama-3.1-8b-instant' ) ); ?>" class="regular-text">
+                        <p class="description">Default: llama-3.1-8b-instant</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th colspan="2"><h2 style="margin:16px 0 4px;padding-bottom:4px;border-bottom:1px solid #c3c4c7;">Behavior</h2></th>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_cache_ttl_hours">Cache duration (hours)</label></th>
+                    <td>
+                        <input type="number" id="fse_ai_cache_ttl_hours" name="fse_settings[ai_cache_ttl_hours]" value="<?php echo esc_attr( fse_get_option( 'ai_cache_ttl_hours', '24' ) ); ?>" min="1" max="168" style="width:90px;">
+                        <p class="description">How long to cache AI results per search term (1–168 hours).</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="fse_ai_timeout_seconds">Timeout (seconds)</label></th>
+                    <td>
+                        <input type="number" step="0.1" id="fse_ai_timeout_seconds" name="fse_settings[ai_timeout_seconds]" value="<?php echo esc_attr( fse_get_option( 'ai_timeout_seconds', '1.5' ) ); ?>" min="0.5" max="5" style="width:90px;">
+                        <p class="description">Max time to wait for an AI response before falling back to normal search (0.5–5 seconds).</p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( 'Save Settings' ); ?>
+        </div>
     </form>
 
     <?php /* ── SYNONYMS TAB — commented out (synonym groups managed programmatically via DB, functionality still active) ──
