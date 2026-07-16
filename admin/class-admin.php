@@ -43,6 +43,9 @@ class FSE_Admin {
             $clean[ $key ] = isset( $input[ $key ] ) ? '1' : '0';
         }
 
+        $min_length = isset( $input['fuzzy_min_length'] ) ? absint( $input['fuzzy_min_length'] ) : FSE_FuzzySearch::DEFAULT_MIN_LENGTH;
+        $clean['fuzzy_min_length'] = (string) min( 10, max( 3, $min_length ) );
+
         // Manual custom field keys — commented out (now auto-detects all public meta fields)
         // $clean['custom_field_keys'] = sanitize_textarea_field( $input['custom_field_keys'] ?? '' );
 

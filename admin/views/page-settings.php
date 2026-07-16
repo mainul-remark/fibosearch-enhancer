@@ -79,9 +79,18 @@ function fse_opt( $key, $default = '1' ) {
                     <td>
                         <label>
                             <input type="checkbox" name="fse_settings[fuzzy_enabled]" value="1" <?php checked( fse_opt( 'fuzzy_enabled' ) ); ?>>
-                            Match <strong>similar-sounding words</strong> (SOUNDEX) and handle minor trailing-character typos
+                            Match <strong>similar-sounding words</strong> (SOUNDEX) and handle minor typos
                         </label>
-                        <p class="description">e.g. "nikey" matches "Nike". Activates for keywords ≥ 4 characters.</p>
+                        <p class="description">e.g. "nikey" matches "Nike", "siodol" matches "SIODIL".</p>
+                        <p>
+                            <label>
+                                Minimum keyword length to activate:
+                                <input type="number" name="fse_settings[fuzzy_min_length]" min="3" max="10" step="1"
+                                    value="<?php echo esc_attr( fse_get_option( 'fuzzy_min_length', FSE_FuzzySearch::DEFAULT_MIN_LENGTH ) ); ?>"
+                                    style="width:60px;">
+                            </label>
+                        </p>
+                        <p class="description">Fuzzy matching only runs on search keywords at least this many characters long. Lower catches shorter typos but increases false positives.</p>
                     </td>
                 </tr>
                 <tr>

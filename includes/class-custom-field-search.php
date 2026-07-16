@@ -7,8 +7,13 @@
  * the underscore prefix convention, so excluding them keeps results clean
  * without any manual configuration needed.
  *
- * Uses FiboSearch's own join and search_or hooks so conditions live inside
- * each search term's OR group — preserving AND-per-word logic for multi-word searches.
+ * Uses an EXISTS subquery rather than a JOIN. FiboSearch core already joins
+ * wp_postmeta once (unrestricted, for its own SKU search); a second
+ * unrestricted JOIN to the same table here would multiply every product row
+ * by (postmeta rows per product)^2 before the WHERE clause even runs — with
+ * ~100 meta rows per product that's ~10,000x row inflation, which is what
+ * made searches take minutes and peg MySQL's CPU. EXISTS evaluates per
+ * product row without multiplying the result set.
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -38,20 +43,8 @@ class FSE_CustomFieldSearch {
          * if ( empty( $this->meta_keys ) ) return;
          */
 
-        // FiboSearch fires these filters only inside isAjaxSearch() — no extra guard needed.
-        add_filter( 'dgwt/wcas/native/search_query/join',      [ $this, 'add_join' ] );
+        // FiboSearch fires this filter only inside isAjaxSearch() — no extra guard needed.
         add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'add_conditions' ], 10, 3 );
-        add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'ensure_distinct' ], 10, 3 );
-    }
-
-    /**
-     * Add a LEFT JOIN on postmeta with a unique alias (fse_cf) so our
-     * conditions don't collide with FiboSearch's SKU join (dgwt_wcasmsku).
-     */
-    public function add_join( $join ) {
-        global $wpdb;
-        $join .= " LEFT JOIN {$wpdb->postmeta} AS fse_cf ON ({$wpdb->posts}.ID = fse_cf.post_id)";
-        return $join;
     }
 
     /**
@@ -82,21 +75,15 @@ class FSE_CustomFieldSearch {
         // Search all public meta fields automatically (keys not starting with '_')
         // In $wpdb->prepare(): \\ = literal backslash, _ = underscore, %% = literal %
         $condition = $wpdb->prepare(
-            "(fse_cf.meta_key NOT LIKE '\\_%%' AND fse_cf.meta_value LIKE %s)",
+            "EXISTS (
+                SELECT 1 FROM {$wpdb->postmeta} AS fse_cf
+                 WHERE fse_cf.post_id = {$wpdb->posts}.ID
+                   AND fse_cf.meta_key NOT LIKE '\\_%%'
+                   AND fse_cf.meta_value LIKE %s
+            )",
             $like
         );
 
         return $search . " OR {$condition}";
-    }
-
-    /**
-     * The LEFT JOIN can produce duplicate rows — ensure DISTINCT is active.
-     * FiboSearch already sets DISTINCT via posts_distinct at priority 501,
-     * but this is a safety guard in case it's ever skipped.
-     */
-    public function ensure_distinct( $search, $like, $engine ) {
-        // No-op here: handled by FiboSearch's searchDistinct at priority 501.
-        // If you remove FiboSearch's distinct, add a posts_distinct hook here.
-        return $search;
     }
 }
