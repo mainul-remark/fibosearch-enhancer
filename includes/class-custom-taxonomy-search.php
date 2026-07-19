@@ -40,20 +40,46 @@ class FSE_CustomTaxonomySearch {
 
         global $wpdb;
 
+        [ $name_sql, $name_params ] = FSE_Helpers::name_match_sql( 't.name', $keyword );
+
         $tax_placeholders = implode( ',', array_fill( 0, count( $taxonomies ), '%s' ) );
-        $params           = array_merge(
-            [ '%' . $wpdb->esc_like( $keyword ) . '%' ],
-            $taxonomies
-        );
+        $params           = array_merge( $name_params, $taxonomies );
 
         $term_ids = $wpdb->get_col( $wpdb->prepare(
             "SELECT DISTINCT t.term_id
                FROM {$wpdb->terms} t
          INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
-              WHERE t.name LIKE %s
+              WHERE {$name_sql}
                 AND tt.taxonomy IN ({$tax_placeholders})",
             $params
         ) );
+
+        // Whole-phrase match found nothing — fall back to matching any single
+        // significant word against a 'keywords' term name. "keywords" is the
+        // curated benefit-tag taxonomy (e.g. "Reduces Dark Spot", "Anti
+        // Aging") — exactly the mechanism meant to catch a descriptive
+        // sentence-style query like "dark circle removing cream", but only
+        // if lookup can match on the one meaningful word inside it rather
+        // than requiring the whole sentence to match a tag name verbatim.
+        // Scoped to 'keywords' only (not brand/age-range/skin-type) since
+        // those are exact-label taxonomies where partial-word matching would
+        // mostly just add noise.
+        if ( empty( $term_ids ) && in_array( 'keywords', $taxonomies, true ) ) {
+            $term_ids = $this->lookup_by_significant_words( $keyword );
+        }
+
+        // Still nothing — try a phonetic (SOUNDEX) match against 'brand'
+        // term names. Brand names are proper nouns, so real letter-level
+        // misspellings ("soidil" for "Siodil", "niir" for "Nior") never
+        // match via substring/collapsed matching no matter how the spacing
+        // is normalized — SOUNDEX catches the ones that sound alike even
+        // when several letters differ. Scoped to 'brand' only, since a
+        // phonetic match on age-range/skin-type values would be meaningless
+        // (they're not proper nouns) and on 'keywords' would risk noise
+        // across a much larger, more generic term set.
+        if ( empty( $term_ids ) && in_array( 'brand', $taxonomies, true ) ) {
+            $term_ids = $this->lookup_brand_by_soundex( $keyword );
+        }
 
         if ( empty( $term_ids ) ) return $keyword;
 
@@ -79,9 +105,89 @@ class FSE_CustomTaxonomySearch {
     }
 
     /**
+     * Match any single significant word in the phrase against a 'keywords'
+     * term name, OR'd together.
+     *
+     * @return int[] term_ids
+     */
+    private function lookup_by_significant_words( string $keyword ): array {
+        $words = FSE_Helpers::significant_words( $keyword );
+        if ( empty( $words ) ) return [];
+
+        global $wpdb;
+
+        $or_fragments = [];
+        $params       = [];
+
+        foreach ( $words as $word ) {
+            [ $word_sql, $word_params ] = FSE_Helpers::name_match_sql( 't.name', $word );
+            $or_fragments[] = $word_sql;
+            array_push( $params, ...$word_params );
+        }
+
+        $where = '(' . implode( ' OR ', $or_fragments ) . ')';
+        $params[] = 'keywords';
+
+        return array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT t.term_id
+               FROM {$wpdb->terms} t
+         INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
+              WHERE {$where}
+                AND tt.taxonomy = %s",
+            $params
+        ) ) );
+    }
+
+    /**
+     * Match any single significant word in the phrase phonetically against
+     * a 'brand' term name (SOUNDEX), OR'd together. Skips words under 4
+     * characters — SOUNDEX collisions on very short words are too common to
+     * be meaningful.
+     *
+     * @return int[] term_ids
+     */
+    private function lookup_brand_by_soundex( string $keyword ): array {
+        $words = FSE_Helpers::significant_words( $keyword );
+        if ( empty( $words ) ) return [];
+
+        global $wpdb;
+
+        $or_fragments = [];
+        $params       = [];
+
+        foreach ( $words as $word ) {
+            [ $word_sql, $word_params ] = FSE_Helpers::soundex_match_sql( 't.name', $word );
+            $or_fragments[] = $word_sql;
+            array_push( $params, ...$word_params );
+        }
+
+        $where = '(' . implode( ' OR ', $or_fragments ) . ')';
+        $params[] = 'brand';
+
+        return array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT t.term_id
+               FROM {$wpdb->terms} t
+         INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
+              WHERE {$where}
+                AND tt.taxonomy = %s",
+            $params
+        ) ) );
+    }
+
+    /**
      * Merge taxonomy-matched products into the raw results list.
      */
     public function inject_products( $products ) {
         return FSE_Helpers::merge_extra_products( $products, $this->product_ids );
+    }
+
+    /**
+     * Product IDs matched via taxonomy lookup for the current search.
+     * Consumed by FSE_FieldWeightScore.
+     *
+     * @return int[]
+     */
+    public function get_matched_ids(): array {
+        return $this->product_ids;
     }
 }

@@ -105,10 +105,11 @@ class FSE_AI_Client {
         $shape .= '}';
 
         $prompt =
-            "You are a WooCommerce store search assistant. A shopper searched for: \"{$keyword}\"\n\n" .
+            "You are a WooCommerce store search assistant for a store in Bangladesh. A shopper searched for: \"{$keyword}\"\n\n" .
             "Return ONLY strict JSON (no markdown, no code fences, no extra text) with this exact shape:\n" .
             $shape . "\n\n" .
-            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.\n";
+            "Rules: \"corrected\" is a short search phrase, not a sentence. \"synonyms\" must be specific multi-word phrases a shopper might search instead — never a single generic word (e.g. never bare \"care\", \"mens\", \"skin\") since those match unrelated products.\n" .
+            "The query may be Banglish (Bengali written in English/Latin letters, e.g. \"bhalo\", \"chuler\", \"lagbe\") or a mix of Bengali and English, with no standard spelling. If so, translate the Bengali parts to their English meaning and drop non-product filler words (e.g. \"lagbe\" = \"need\", \"kinbo\" = \"will buy\", \"dam koto\" = \"what's the price\" — these carry no product-identifying signal and should not appear in \"corrected\"). \"corrected\" must always be an English product-search phrase.\n";
 
         foreach ( self::INTENT_FIELDS as $field ) {
             $values = array_slice( array_values( array_filter( $taxonomy_terms[ $field ] ?? [] ) ), 0, 300 );
@@ -219,6 +220,10 @@ class FSE_AI_Client {
                     if ( null !== $parsed ) {
                         return $parsed;
                     }
+                    FSE_AIFailureLogger::log( $vendor, 'malformed response', $keyword, $http_code );
+                } else {
+                    $curl_error = curl_error( $ch );
+                    FSE_AIFailureLogger::log( $vendor, '' !== $curl_error ? $curl_error : "HTTP {$http_code}", $keyword, $http_code );
                 }
             }
 
@@ -226,6 +231,15 @@ class FSE_AI_Client {
                 curl_multi_select( $multi, 0.1 );
             }
         } while ( $running > 0 && ( microtime( true ) - $start ) < $timeout );
+
+        // Any vendor still in flight when we stopped polling — either the
+        // overall timeout elapsed, or another vendor already won and the
+        // caller moved on — never got a chance to be classified above.
+        foreach ( $handles as $vendor => $ch ) {
+            if ( ! isset( $done[ $vendor ] ) ) {
+                FSE_AIFailureLogger::log( $vendor, 'timeout', $keyword );
+            }
+        }
 
         return null;
     }

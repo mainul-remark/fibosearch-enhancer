@@ -31,14 +31,16 @@ class FSE_TagSearch {
 
         global $wpdb;
 
-        // Find matching product_tag term IDs (name LIKE '%keyword%')
+        [ $name_sql, $name_params ] = FSE_Helpers::name_match_sql( 't.name', $keyword );
+
+        // Find matching product_tag term IDs
         $term_ids = $wpdb->get_col( $wpdb->prepare(
             "SELECT DISTINCT t.term_id
                FROM {$wpdb->terms} t
          INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
               WHERE tt.taxonomy = 'product_tag'
-                AND t.name LIKE %s",
-            '%' . $wpdb->esc_like( $keyword ) . '%'
+                AND {$name_sql}",
+            $name_params
         ) );
 
         if ( empty( $term_ids ) ) return $keyword;
@@ -72,5 +74,15 @@ class FSE_TagSearch {
      */
     public function inject_products( $products ) {
         return FSE_Helpers::merge_extra_products( $products, $this->product_ids );
+    }
+
+    /**
+     * Product IDs matched via tag lookup for the current search. Consumed by
+     * FSE_FieldWeightScore to distinguish tag-only matches from title matches.
+     *
+     * @return int[]
+     */
+    public function get_matched_ids(): array {
+        return $this->product_ids;
     }
 }

@@ -61,4 +61,14 @@ class FSE_VariationSkuSearch {
     public function inject_products( $products ) {
         return FSE_Helpers::merge_extra_products( $products, $this->parent_ids );
     }
+
+    /**
+     * Parent product IDs matched via variation SKU lookup for the current
+     * search. Consumed by FSE_FieldWeightScore.
+     *
+     * @return int[]
+     */
+    public function get_matched_ids(): array {
+        return $this->parent_ids;
+    }
 }

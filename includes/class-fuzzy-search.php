@@ -36,6 +36,7 @@ class FSE_FuzzySearch {
         $term = FSE_Helpers::term_from_like( $like );
 
         if ( strlen( $term ) < self::MIN_LENGTH ) return $search;
+        if ( FSE_Helpers::is_stopword( $term ) ) return $search;
 
         global $wpdb;
 

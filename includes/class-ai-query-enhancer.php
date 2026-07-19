@@ -81,7 +81,7 @@ class FSE_AIQueryEnhancer {
         $cached    = get_transient( $cache_key );
 
         if ( false !== $cached ) {
-            $this->data_by_keyword[ $normalized ] = $cached;
+            $this->cache_data( $normalized, $cached );
             return $keyword;
         }
 
@@ -107,9 +107,34 @@ class FSE_AIQueryEnhancer {
         if ( $ttl_hours <= 0 ) $ttl_hours = 24;
 
         set_transient( $cache_key, $resolved, $ttl_hours * HOUR_IN_SECONDS );
-        $this->data_by_keyword[ $normalized ] = $resolved;
+        $this->cache_data( $normalized, $resolved );
 
         return $keyword;
+    }
+
+    /**
+     * Cache resolved AI data under the full phrase AND under each individual
+     * word in it.
+     *
+     * FiboSearch's search_or/score filters fire per tokenized word (it splits
+     * "s" into $q['search_terms'] and loops), not once for the whole phrase.
+     * Caching only by the full phrase meant add_conditions()/boost() — which
+     * look up by the single term FiboSearch hands them — never found a match
+     * for any multi-word search; the AI widening silently no-op'd except for
+     * single-word queries where term === phrase. Storing the same resolved
+     * data under every word lets each term's OR-group apply the phrase-level
+     * correction/synonyms, which is correct here since those groups are
+     * AND'ed together — a product matching the correction/synonym anywhere
+     * satisfies every group independently.
+     */
+    private function cache_data( string $normalized, array $resolved ): void {
+        $this->data_by_keyword[ $normalized ] = $resolved;
+
+        foreach ( preg_split( '/\s+/', $normalized ) as $word ) {
+            if ( $word !== '' ) {
+                $this->data_by_keyword[ $word ] = $resolved;
+            }
+        }
     }
 
     /**

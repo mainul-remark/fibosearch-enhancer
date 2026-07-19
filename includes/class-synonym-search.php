@@ -42,6 +42,8 @@ class FSE_SynonymSearch {
         $words = preg_split( '/\s+/', strtolower( trim( $keyword ) ) );
 
         foreach ( $words as $word ) {
+            if ( FSE_Helpers::is_stopword( $word ) ) continue;
+
             foreach ( $groups as $group ) {
                 $terms = array_map( 'strtolower', array_map( 'trim', (array) $group ) );
                 if ( in_array( $word, $terms, true ) ) {
