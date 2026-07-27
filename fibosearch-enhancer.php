@@ -3,7 +3,7 @@
  * Plugin Name: FiboSearch Enhancer
  * Description: Extends FiboSearch (Ajax Search for WooCommerce) with fuzzy search, synonyms, variation SKU search, attribute value search, and custom field search.
  * Version: 2.3.1
- * Author: Herlan.com
+ * Author: Mainul Islam
  * Text Domain: fse
  * Requires Plugins: ajax-search-for-woocommerce
  */
