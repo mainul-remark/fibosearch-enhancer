@@ -1,0 +1,48 @@
+:root {
+    --fse-brand: #2563eb;
+}
+
+.fse-popular-searches {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.fse-popular-searches__label {
+    font-size: 11px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.fse-popular-searches__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fse-popular-chips__item {
+    display: inline-block;
+    border-radius: 20px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: #374151;
+    min-width: 60px;
+    text-align: center;
+    text-decoration: none;
+    line-height: 1.4;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.fse-popular-chips__item:hover,
+.fse-popular-chips__item:focus {
+    background: var(--fse-brand);
+    color: #fff;
+    border-color: var(--fse-brand);
+    text-decoration: none;
+    outline: none;
+}

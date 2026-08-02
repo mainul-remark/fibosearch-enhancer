@@ -28,6 +28,9 @@ class FSE_SynonymSearch {
         add_filter( 'dgwt/wcas/native/search_query/search_or',  [ $this, 'add_conditions' ], 10, 3 );
     }
 
+    /** @var array|null Request-level cache for the synonym groups option. */
+    private static $groups_cache = null;
+
     /**
      * Pre-compute synonym expansions for every word in the keyword.
      */
@@ -36,7 +39,10 @@ class FSE_SynonymSearch {
 
         if ( empty( $keyword ) ) return $keyword;
 
-        $groups = get_option( 'fse_synonyms', [] );
+        if ( null === self::$groups_cache ) {
+            self::$groups_cache = get_option( 'fse_synonyms', [] );
+        }
+        $groups = self::$groups_cache;
         if ( empty( $groups ) ) return $keyword;
 
         $words = preg_split( '/\s+/', strtolower( trim( $keyword ) ) );

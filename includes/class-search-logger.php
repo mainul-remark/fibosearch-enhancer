@@ -29,28 +29,15 @@ class FSE_SearchLogger {
         $keyword = trim( (string) $keyword );
         if ( $keyword === '' || (int) $hits > 0 ) return;
 
-        $log = get_option( self::OPTION_KEY, [] );
-        $log = is_array( $log ) ? $log : [];
-
-        $key = strtolower( $keyword );
-        if ( isset( $log[ $key ] ) ) {
-            $log[ $key ]['count']++;
-            $log[ $key ]['last_seen'] = time();
-        } else {
-            $log[ $key ] = [
-                'term'      => $keyword,
-                'count'     => 1,
-                'last_seen' => time(),
-            ];
-        }
-
-        // Cap by dropping the least-recently-seen entries once over the limit.
-        if ( count( $log ) > self::MAX_ENTRIES ) {
-            uasort( $log, fn( $a, $b ) => $a['last_seen'] <=> $b['last_seen'] );
-            $log = array_slice( $log, -self::MAX_ENTRIES, null, true );
-        }
-
-        update_option( self::OPTION_KEY, $log, false );
+        global $wpdb;
+        require_once FSE_DIR . 'includes/class-behavior-schema.php';
+        $table = $wpdb->prefix . FSE_BehaviorSchema::ZERO_RESULTS_TABLE;
+        
+        $wpdb->query($wpdb->prepare(
+            "INSERT INTO {$table} (keyword, hits, last_seen) VALUES (%s, 1, %s)
+             ON DUPLICATE KEY UPDATE hits = hits + 1, last_seen = VALUES(last_seen)",
+             strtolower($keyword), current_time('mysql')
+        ));
     }
 
     /**
@@ -59,15 +46,22 @@ class FSE_SearchLogger {
      * @return array<int, array{term: string, count: int, last_seen: int}>
      */
     public static function get_entries(): array {
-        $log = get_option( self::OPTION_KEY, [] );
-        $log = is_array( $log ) ? array_values( $log ) : [];
-
-        usort( $log, fn( $a, $b ) => $b['count'] <=> $a['count'] );
-
-        return $log;
+        global $wpdb;
+        require_once FSE_DIR . 'includes/class-behavior-schema.php';
+        $table = $wpdb->prefix . FSE_BehaviorSchema::ZERO_RESULTS_TABLE;
+        
+        $results = $wpdb->get_results( $wpdb->prepare(
+            "SELECT keyword as term, hits as count, UNIX_TIMESTAMP(last_seen) as last_seen FROM {$table} ORDER BY hits DESC LIMIT %d",
+            self::MAX_ENTRIES
+        ), ARRAY_A );
+        
+        return is_array($results) ? $results : [];
     }
 
     public static function clear(): void {
-        delete_option( self::OPTION_KEY );
+        global $wpdb;
+        require_once FSE_DIR . 'includes/class-behavior-schema.php';
+        $table = $wpdb->prefix . FSE_BehaviorSchema::ZERO_RESULTS_TABLE;
+        $wpdb->query("TRUNCATE TABLE {$table}");
     }
 }

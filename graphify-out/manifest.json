@@ -1,0 +1,182 @@
+{
+  "admin/class-admin.php": {
+    "mtime": 1784365610.1623874,
+    "ast_hash": "63cdf15a818d57b45697897940660293",
+    "semantic_hash": "63cdf15a818d57b45697897940660293"
+  },
+  "admin/views/page-settings.php": {
+    "mtime": 1784365610.2292187,
+    "ast_hash": "b69a3dd82974685b3aba8e8d5180eec0",
+    "semantic_hash": "b69a3dd82974685b3aba8e8d5180eec0"
+  },
+  "assets/js/admin.js": {
+    "mtime": 1784181038.1573007,
+    "ast_hash": "ef270b810fb4ff2a002f0ed1b8f5da09",
+    "semantic_hash": "ef270b810fb4ff2a002f0ed1b8f5da09"
+  },
+  "assets/js/behavior-tracker.js": {
+    "mtime": 1784352634.8648143,
+    "ast_hash": "2b72b27c58fe748bd2e238e3eed5f851",
+    "semantic_hash": "2b72b27c58fe748bd2e238e3eed5f851"
+  },
+  "fibosearch-enhancer.php": {
+    "mtime": 1784369083.1049545,
+    "ast_hash": "8c3ee4c8a1f5054e0d893c167dbf7a98",
+    "semantic_hash": "8c3ee4c8a1f5054e0d893c167dbf7a98"
+  },
+  "includes/class-ai-client.php": {
+    "mtime": 1784183684.5819032,
+    "ast_hash": "232925cec498240fa4050d8a7c84f850",
+    "semantic_hash": "232925cec498240fa4050d8a7c84f850"
+  },
+  "includes/class-ai-failure-logger.php": {
+    "mtime": 1784183676.132391,
+    "ast_hash": "96103aa3558a070b05ea62a6488acbd6",
+    "semantic_hash": "96103aa3558a070b05ea62a6488acbd6"
+  },
+  "includes/class-ai-query-enhancer.php": {
+    "mtime": 1784369538.9010012,
+    "ast_hash": "bbc7a347f7b4808f768a36da381ba24a",
+    "semantic_hash": "bbc7a347f7b4808f768a36da381ba24a"
+  },
+  "includes/class-attribute-search.php": {
+    "mtime": 1784178065.5061238,
+    "ast_hash": "7ccfdf3609dc9b64164ece48d64b1c12",
+    "semantic_hash": "7ccfdf3609dc9b64164ece48d64b1c12"
+  },
+  "includes/class-bangla-translation.php": {
+    "mtime": 1784173193.1777577,
+    "ast_hash": "c7eacebd06531d0353d44c3a86f2dd26",
+    "semantic_hash": "c7eacebd06531d0353d44c3a86f2dd26"
+  },
+  "includes/class-behavior-rollup.php": {
+    "mtime": 1784365136.9275658,
+    "ast_hash": "2b7dd904879acd6146e0eb6af0d31689",
+    "semantic_hash": "2b7dd904879acd6146e0eb6af0d31689"
+  },
+  "includes/class-behavior-schema.php": {
+    "mtime": 1784351899.6849384,
+    "ast_hash": "954ed920a6732587409788de099dfadc",
+    "semantic_hash": "954ed920a6732587409788de099dfadc"
+  },
+  "includes/class-behavior-tracker.php": {
+    "mtime": 1784368534.037319,
+    "ast_hash": "64a36d0c436c6750cc6b053f7ee41971",
+    "semantic_hash": "64a36d0c436c6750cc6b053f7ee41971"
+  },
+  "includes/class-category-search.php": {
+    "mtime": 1784176627.249348,
+    "ast_hash": "3fc5316cca61686cc577f7bcf617f56c",
+    "semantic_hash": "3fc5316cca61686cc577f7bcf617f56c"
+  },
+  "includes/class-competitor-fallback.php": {
+    "mtime": 1784183414.0094612,
+    "ast_hash": "48a8b463d04ee7e1d39bb21b782a97a1",
+    "semantic_hash": "48a8b463d04ee7e1d39bb21b782a97a1"
+  },
+  "includes/class-custom-field-search.php": {
+    "mtime": 1784373873.7289293,
+    "ast_hash": "ba06f23dfd6dcb144f5e6826edc81742",
+    "semantic_hash": "ba06f23dfd6dcb144f5e6826edc81742"
+  },
+  "includes/class-custom-taxonomy-search.php": {
+    "mtime": 1784176609.0719595,
+    "ast_hash": "1464a4ec686b139bdab8c5d703d22e0a",
+    "semantic_hash": "1464a4ec686b139bdab8c5d703d22e0a"
+  },
+  "includes/class-discount-intent-fallback.php": {
+    "mtime": 1784176351.1593192,
+    "ast_hash": "c2c17e4efa52e6a3d99bb937fb63df24",
+    "semantic_hash": "c2c17e4efa52e6a3d99bb937fb63df24"
+  },
+  "includes/class-field-weight-score.php": {
+    "mtime": 1784172107.9636085,
+    "ast_hash": "08b77778471e833e68fcc5cd769c74ca",
+    "semantic_hash": "08b77778471e833e68fcc5cd769c74ca"
+  },
+  "includes/class-filler-word-strip.php": {
+    "mtime": 1784173859.2010634,
+    "ast_hash": "a3ab0979df9d38fc3f1fa4d5e32c8243",
+    "semantic_hash": "a3ab0979df9d38fc3f1fa4d5e32c8243"
+  },
+  "includes/class-fuzzy-search.php": {
+    "mtime": 1784171400.0731547,
+    "ast_hash": "17ea49a8bbeb1883ca211edae72d79c1",
+    "semantic_hash": "17ea49a8bbeb1883ca211edae72d79c1"
+  },
+  "includes/class-helpers.php": {
+    "mtime": 1784176585.8438818,
+    "ast_hash": "66cb29d6772798eab8b3ef1d687caf98",
+    "semantic_hash": "66cb29d6772798eab8b3ef1d687caf98"
+  },
+  "includes/class-ingredient-field-boost.php": {
+    "mtime": 1784178044.4582992,
+    "ast_hash": "8c81dec348d0cb4f25c22e95ea3b2382",
+    "semantic_hash": "8c81dec348d0cb4f25c22e95ea3b2382"
+  },
+  "includes/class-priority-mapping.php": {
+    "mtime": 1784184175.3127728,
+    "ast_hash": "438f60675763049a7caa6e8684a14465",
+    "semantic_hash": "438f60675763049a7caa6e8684a14465"
+  },
+  "includes/class-score-boost.php": {
+    "mtime": 1784368839.949673,
+    "ast_hash": "93338fcd7058caec02741fa2c739089d",
+    "semantic_hash": "93338fcd7058caec02741fa2c739089d"
+  },
+  "includes/class-search-logger.php": {
+    "mtime": 1784171460.8463907,
+    "ast_hash": "03ccea40731e2dc48bb263cde936d224",
+    "semantic_hash": "03ccea40731e2dc48bb263cde936d224"
+  },
+  "includes/class-stemming-search.php": {
+    "mtime": 1784171417.2658992,
+    "ast_hash": "651800337107a50f841c1046b3ded179",
+    "semantic_hash": "651800337107a50f841c1046b3ded179"
+  },
+  "includes/class-synonym-search.php": {
+    "mtime": 1784171403.3648899,
+    "ast_hash": "0053e4d0f6c7c846943702b7fb362c2a",
+    "semantic_hash": "0053e4d0f6c7c846943702b7fb362c2a"
+  },
+  "includes/class-tag-search.php": {
+    "mtime": 1784172072.865927,
+    "ast_hash": "b18336abf38f61edd39a2d29f4b9240f",
+    "semantic_hash": "b18336abf38f61edd39a2d29f4b9240f"
+  },
+  "includes/class-typo-correction.php": {
+    "mtime": 1784176576.3848188,
+    "ast_hash": "a7ec21dea9a95d248a59a98ccf0cc50f",
+    "semantic_hash": "a7ec21dea9a95d248a59a98ccf0cc50f"
+  },
+  "includes/class-variation-sku-search.php": {
+    "mtime": 1784171436.8319547,
+    "ast_hash": "b52a84bfd0b281395929e5aa0dbd3871",
+    "semantic_hash": "b52a84bfd0b281395929e5aa0dbd3871"
+  },
+  "docs/superpowers/plans/2026-07-14-ai-query-enhancement.md": {
+    "mtime": 1784031885.243413,
+    "ast_hash": "f1e3ce29ba53c93720acc81a3c7f12b6",
+    "semantic_hash": "f1e3ce29ba53c93720acc81a3c7f12b6"
+  },
+  "docs/superpowers/plans/2026-07-18-search-behavior-tracking.md": {
+    "mtime": 1784353654.9945102,
+    "ast_hash": "f7e899d4cdf8768895b5f2cc64866a00",
+    "semantic_hash": "f7e899d4cdf8768895b5f2cc64866a00"
+  },
+  "docs/superpowers/specs/2026-07-14-ai-query-enhancement-design.md": {
+    "mtime": 1784031675.13545,
+    "ast_hash": "711cff7558451b02a8ec97e3feace8f7",
+    "semantic_hash": "711cff7558451b02a8ec97e3feace8f7"
+  },
+  "docs/superpowers/specs/2026-07-18-dynamic-priority-mapping-design.md": {
+    "mtime": 1784370774.8753738,
+    "ast_hash": "f7c2b4b2464fdc636973fa98d8921943",
+    "semantic_hash": "f7c2b4b2464fdc636973fa98d8921943"
+  },
+  "docs/superpowers/specs/2026-07-18-search-behavior-tracking-design.md": {
+    "mtime": 1784351328.7184992,
+    "ast_hash": "fda14dde9246c3727a01da4f659647ae",
+    "semantic_hash": "fda14dde9246c3727a01da4f659647ae"
+  }
+}

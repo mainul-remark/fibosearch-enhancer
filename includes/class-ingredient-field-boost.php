@@ -20,6 +20,20 @@ class FSE_IngredientFieldBoost {
     const BOOST_PER_FIELD = 15;
     const MAX_FIELDS_COUNTED = 2;
 
+    /**
+     * Per-request cache of additional score per post_id.
+     * boost() fires once per product (50-300+ times per search); caching
+     * avoids re-running the meta lookups and string comparisons for products
+     * that appear in multiple filter passes.
+     *
+     * @var array<int, int>
+     */
+    private $score_cache = [];
+
+    /** Significant words for the current search phrase, computed once. */
+    private $current_words = [];
+    private $current_keyword = '';
+
     public function __construct() {
         if ( fse_get_option( 'ingredient_field_boost_enabled', '1' ) !== '1' ) return;
 
@@ -33,27 +47,40 @@ class FSE_IngredientFieldBoost {
      * @param \WP_Post $post     Product post object (unused).
      */
     public function boost( $score, $keyword, $post_id, $post ) {
-        $words = FSE_Helpers::significant_words( (string) $keyword, 3 );
-        if ( empty( $words ) ) return $score;
-
-        $matched_fields = 0;
-
-        foreach ( self::FIELDS as $field ) {
-            $value = get_post_meta( $post_id, $field, true );
-            if ( '' === $value || ! is_string( $value ) ) continue;
-
-            $value_lower = strtolower( wp_strip_all_tags( $value ) );
-
-            foreach ( $words as $word ) {
-                if ( false !== strpos( $value_lower, $word ) ) {
-                    $matched_fields++;
-                    break; // count each field at most once
-                }
-            }
-
-            if ( $matched_fields >= self::MAX_FIELDS_COUNTED ) break;
+        // Recompute significant words only when the keyword changes (it's
+        // constant within a single search, but reset it defensively).
+        if ( $keyword !== $this->current_keyword ) {
+            $this->current_keyword = $keyword;
+            $this->current_words   = FSE_Helpers::significant_words( (string) $keyword, 3 );
+            $this->score_cache     = [];
         }
 
-        return $matched_fields > 0 ? $score + ( self::BOOST_PER_FIELD * $matched_fields ) : $score;
+        if ( empty( $this->current_words ) ) return $score;
+
+        if ( ! isset( $this->score_cache[ $post_id ] ) ) {
+            $matched_fields = 0;
+
+            foreach ( self::FIELDS as $field ) {
+                $value = get_post_meta( $post_id, $field, true );
+                if ( '' === $value || ! is_string( $value ) ) continue;
+
+                $value_lower = strtolower( wp_strip_all_tags( $value ) );
+
+                foreach ( $this->current_words as $word ) {
+                    if ( false !== strpos( $value_lower, $word ) ) {
+                        $matched_fields++;
+                        break;
+                    }
+                }
+
+                if ( $matched_fields >= self::MAX_FIELDS_COUNTED ) break;
+            }
+
+            $this->score_cache[ $post_id ] = $matched_fields > 0
+                ? self::BOOST_PER_FIELD * $matched_fields
+                : 0;
+        }
+
+        return $score + $this->score_cache[ $post_id ];
     }
 }

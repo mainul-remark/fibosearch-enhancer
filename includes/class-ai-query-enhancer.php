@@ -13,8 +13,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class FSE_AIQueryEnhancer {
 
-    /** Minimum keyword length to attempt an AI call */
+    /** Minimum total keyword length to attempt an AI call */
     const MIN_LENGTH = 3;
+
+    /** Minimum length of the last word — blocks background fetches while the user is still typing */
+    const MIN_LAST_WORD_LENGTH = 3;
 
     /**
      * Maps FSE_AI_Client::INTENT_FIELDS (the AI's JSON field names) to the
@@ -57,6 +60,19 @@ class FSE_AIQueryEnhancer {
      */
     private $taxonomy_terms = null;
 
+    /**
+     * Per-request cache of product IDs belonging to a given taxonomy+term,
+     * keyed by "{$taxonomy}:{$term_id}". boost() fires once per product in
+     * the raw result set (50-300+ times per search) — has_term() alone
+     * still costs a query per call even with the post's term cache primed,
+     * so a single get_objects_in_term() lookup per unique taxonomy/term
+     * pair (there are at most 4, one per AI intent field) replaces what
+     * would otherwise be up to 4 queries per product.
+     *
+     * @var array<string, int[]>
+     */
+    private $matched_product_ids = [];
+
     public function __construct() {
         if ( '1' !== fse_get_option( 'ai_enabled', '0' ) ) return;
 
@@ -65,17 +81,30 @@ class FSE_AIQueryEnhancer {
         add_filter( 'dgwt/wcas/phrase',                        [ $this, 'build_ai_data' ], 4 );
         add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'add_conditions' ], 10, 3 );
         add_filter( 'dgwt/wcas/search_results/product/score',  [ $this, 'boost' ],          10, 4 );
+        add_action( 'fse_ai_background_fetch',                 [ $this, 'run_background_fetch' ] );
     }
 
     /**
-     * Resolve (from cache or a live AI call) the corrected/synonym/intent
-     * data for the current search phrase. Does not mutate the phrase.
+     * Resolve (from cache) the corrected/synonym/intent data for the
+     * current search phrase. Does not mutate the phrase.
+     *
+     * On a cache miss, this never calls the AI vendor inline — a live vendor
+     * call can take seconds, and no shopper's search should block on that.
+     * Instead it queues an out-of-band fetch (see schedule_background_fetch)
+     * and falls back to the plugin's deterministic modules for this one
+     * request. Once the background job populates the transient, the next
+     * search for this keyword — and repeat searches are the common case —
+     * gets the fast, AI-enhanced result from cache.
      */
     public function build_ai_data( $keyword ) {
         if ( empty( $keyword ) ) return $keyword;
 
         $normalized = strtolower( trim( $keyword ) );
         if ( strlen( $normalized ) < self::MIN_LENGTH ) return $keyword;
+
+        // Skip if the last word is too short — the user is still mid-typing.
+        $words = preg_split( '/\s+/', $normalized, -1, PREG_SPLIT_NO_EMPTY );
+        if ( strlen( end( $words ) ) < self::MIN_LAST_WORD_LENGTH ) return $keyword;
 
         $cache_key = 'fse_ai_' . md5( $normalized );
         $cached    = get_transient( $cache_key );
@@ -85,12 +114,45 @@ class FSE_AIQueryEnhancer {
             return $keyword;
         }
 
-        $raw = $this->client->fetch( $normalized, $this->get_taxonomy_terms() );
+        // Mirror the root plugin's abortAjax() behaviour: if the browser already
+        // closed this connection (user typed another character before our
+        // response was sent), skip scheduling — there will be a fresh request
+        // for the updated query momentarily.
+        if ( connection_aborted() ) return $keyword;
 
-        if ( null === $raw ) {
-            $this->data_by_keyword[ $normalized ] = null;
-            return $keyword;
-        }
+        $this->data_by_keyword[ $normalized ] = null;
+        $this->schedule_background_fetch( $normalized );
+
+        return $keyword;
+    }
+
+    /**
+     * Queue an out-of-band AI fetch for a keyword that missed the cache.
+     * Dedupes via wp_next_scheduled() so concurrent searches for the same
+     * new keyword don't queue redundant vendor calls. spawn_cron() fires
+     * the event almost immediately via a non-blocking loopback request,
+     * regardless of DISABLE_WP_CRON, rather than waiting for WP's
+     * pseudo-cron to be triggered by some unrelated future pageview.
+     */
+    private function schedule_background_fetch( string $normalized ): void {
+        $hook = 'fse_ai_background_fetch';
+        $args = [ $normalized ];
+
+        if ( wp_next_scheduled( $hook, $args ) ) return;
+
+        wp_schedule_single_event( time(), $hook, $args );
+        spawn_cron();
+    }
+
+    /**
+     * Runs in a separate request triggered via WP-Cron — never on a
+     * shopper's own search request — so it's free to take the AI vendor's
+     * full latency. Populates the same transient build_ai_data() reads,
+     * shaped identically to what the old inline path used to write.
+     */
+    public function run_background_fetch( string $normalized ): void {
+        $raw = $this->client->fetch( $normalized, $this->get_taxonomy_terms() );
+        if ( null === $raw ) return;
 
         $term_ids = [];
         foreach ( self::TAXONOMY_MAP as $field => $taxonomy ) {
@@ -106,10 +168,7 @@ class FSE_AIQueryEnhancer {
         $ttl_hours = (int) fse_get_option( 'ai_cache_ttl_hours', '24' );
         if ( $ttl_hours <= 0 ) $ttl_hours = 24;
 
-        set_transient( $cache_key, $resolved, $ttl_hours * HOUR_IN_SECONDS );
-        $this->cache_data( $normalized, $resolved );
-
-        return $keyword;
+        set_transient( 'fse_ai_' . md5( $normalized ), $resolved, $ttl_hours * HOUR_IN_SECONDS );
     }
 
     /**
@@ -201,12 +260,35 @@ class FSE_AIQueryEnhancer {
         foreach ( $data['term_ids'] as $taxonomy => $term_id ) {
             if ( empty( $term_id ) ) continue;
 
-            if ( has_term( (int) $term_id, $taxonomy, $post_id ) ) {
+            if ( in_array( $post_id, $this->get_matched_product_ids( $taxonomy, (int) $term_id ), true ) ) {
                 $score += self::TAXONOMY_BOOSTS[ $taxonomy ] ?? 10;
             }
         }
 
         return $score;
+    }
+
+    /**
+     * Product IDs belonging to the given taxonomy term — computed once per
+     * unique taxonomy/term pair per request (there are at most 4, one per
+     * AI intent field) and reused across every product boost() is called
+     * for, instead of a fresh has_term() query per product.
+     *
+     * @return int[]
+     */
+    private function get_matched_product_ids( string $taxonomy, int $term_id ): array {
+        $cache_key = "{$taxonomy}:{$term_id}";
+
+        if ( isset( $this->matched_product_ids[ $cache_key ] ) ) {
+            return $this->matched_product_ids[ $cache_key ];
+        }
+
+        $found = get_objects_in_term( $term_id, $taxonomy );
+        $ids   = ( ! is_wp_error( $found ) && is_array( $found ) ) ? array_map( 'intval', $found ) : [];
+
+        $this->matched_product_ids[ $cache_key ] = $ids;
+
+        return $ids;
     }
 
     /**

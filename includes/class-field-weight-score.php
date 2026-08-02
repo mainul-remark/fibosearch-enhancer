@@ -32,6 +32,15 @@ class FSE_FieldWeightScore {
     /** @var FSE_CategorySearch|null */
     private $category;
 
+    /**
+     * Hash-map cache of matched IDs per module, built once on first use.
+     * Converts the modules' indexed arrays into O(1) isset() lookups so
+     * boost() doesn't do an O(n) in_array() scan for every product.
+     *
+     * @var array<string, array<int,true>>
+     */
+    private $id_sets = [];
+
     public function __construct( $variation_sku, $attribute, $taxonomy, $tag, $category = null ) {
         if ( fse_get_option( 'field_weight_score_enabled', '1' ) !== '1' ) return;
 
@@ -51,26 +60,36 @@ class FSE_FieldWeightScore {
      * @param \WP_Post $post     Product post object (unused).
      */
     public function boost( $score, $keyword, $post_id, $post ) {
-        if ( $this->variation_sku && in_array( $post_id, $this->variation_sku->get_matched_ids(), true ) ) {
+        if ( $this->variation_sku && $this->in_set( 'sku', $this->variation_sku, $post_id ) ) {
             $score += 12;
         }
 
-        if ( $this->attribute && in_array( $post_id, $this->attribute->get_matched_ids(), true ) ) {
+        if ( $this->attribute && $this->in_set( 'attr', $this->attribute, $post_id ) ) {
             $score += 10;
         }
 
-        if ( $this->taxonomy && in_array( $post_id, $this->taxonomy->get_matched_ids(), true ) ) {
+        if ( $this->taxonomy && $this->in_set( 'tax', $this->taxonomy, $post_id ) ) {
             $score += 10;
         }
 
-        if ( $this->tag && in_array( $post_id, $this->tag->get_matched_ids(), true ) ) {
+        if ( $this->tag && $this->in_set( 'tag', $this->tag, $post_id ) ) {
             $score += 8;
         }
 
-        if ( $this->category && in_array( $post_id, $this->category->get_matched_ids(), true ) ) {
+        if ( $this->category && $this->in_set( 'cat', $this->category, $post_id ) ) {
             $score += 8;
         }
 
         return $score;
+    }
+
+    /**
+     * O(1) membership test — builds the hash map once per module per request.
+     */
+    private function in_set( string $key, $module, int $post_id ): bool {
+        if ( ! isset( $this->id_sets[ $key ] ) ) {
+            $this->id_sets[ $key ] = array_fill_keys( $module->get_matched_ids(), true );
+        }
+        return isset( $this->id_sets[ $key ][ $post_id ] );
     }
 }

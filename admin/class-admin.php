@@ -74,6 +74,7 @@ class FSE_Admin {
             'field_weight_score_enabled',
             'ingredient_field_boost_enabled',
             'zero_result_logging_enabled',
+            'behavior_tracking_enabled',
             'typo_correction_enabled',
             'bangla_translation_enabled',
             'filler_word_strip_enabled',
@@ -81,6 +82,7 @@ class FSE_Admin {
             'discount_intent_fallback_enabled',
             'priority_mapping_enabled',
             'ai_failure_logging_enabled',
+            'popular_searches_enabled',
             'ai_enabled',
             'ai_gemini_enabled',
             'ai_openrouter_enabled',
@@ -109,8 +111,9 @@ class FSE_Admin {
         $timeout = isset( $input['ai_timeout_seconds'] ) ? (float) $input['ai_timeout_seconds'] : 1.5;
         $clean['ai_timeout_seconds'] = (string) max( 0.5, min( 5.0, $timeout ) );
 
-        // Manual custom field keys — commented out (now auto-detects all public meta fields)
-        // $clean['custom_field_keys'] = sanitize_textarea_field( $input['custom_field_keys'] ?? '' );
+        $clean['popular_searches_manual'] = sanitize_textarea_field( $input['popular_searches_manual'] ?? '' );
+
+        delete_transient( FSE_PopularSearches::TRANSIENT_KEY );
 
         return $clean;
     }
@@ -172,9 +175,14 @@ class FSE_Admin {
 
     /**
      * All product_cat terms as {slug, name}, for the mapping table's
-     * category dropdowns.
+     * category dropdowns. Cached in a transient — categories rarely change
+     * and this fires on every admin settings page load.
      */
     private function get_product_categories_for_js(): array {
+        $cache_key = 'fse_admin_product_cats';
+        $cached    = get_transient( $cache_key );
+        if ( is_array( $cached ) ) return $cached;
+
         $terms = get_terms( [
             'taxonomy'   => 'product_cat',
             'hide_empty' => false,
@@ -183,9 +191,13 @@ class FSE_Admin {
 
         if ( is_wp_error( $terms ) || empty( $terms ) ) return [];
 
-        return array_map( function ( $t ) {
+        $result = array_map( function ( $t ) {
             return [ 'slug' => $t->slug, 'name' => $t->name ];
         }, $terms );
+
+        set_transient( $cache_key, $result, 12 * HOUR_IN_SECONDS );
+
+        return $result;
     }
 
     public function render_page() {

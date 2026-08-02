@@ -29,6 +29,13 @@ class FSE_AttributeSearch {
             return $keyword;
         }
 
+        $cache_key = 'fse_attr_' . md5(strtolower($keyword));
+        $cached = get_transient($cache_key);
+        if ( $cached !== false ) {
+            $this->product_ids = $cached;
+            return $keyword;
+        }
+
         $taxonomies = wc_get_attribute_taxonomies();
         if ( empty( $taxonomies ) ) return $keyword;
 
@@ -86,6 +93,8 @@ class FSE_AttributeSearch {
               WHERE term_taxonomy_id IN ({$tt_placeholders})",
             $tt_ids
         ) ) );
+
+        set_transient($cache_key, $this->product_ids, 15 * MINUTE_IN_SECONDS);
 
         return $keyword;
     }

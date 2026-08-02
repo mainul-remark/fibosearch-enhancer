@@ -57,6 +57,10 @@ class FSE_DiscountIntentFallback {
      * Published, purchasable on-sale products, ranked by discount
      * percentage (biggest savings first).
      *
+     * Prices are fetched in a single JOIN query instead of calling
+     * wc_get_product() per product — avoids hydrating hundreds of
+     * WC_Product objects just to read two numeric meta values.
+     *
      * @return WP_Post[]
      */
     private function fetch_on_sale_products(): array {
@@ -65,16 +69,31 @@ class FSE_DiscountIntentFallback {
         $sale_ids = wc_get_product_ids_on_sale();
         if ( empty( $sale_ids ) ) return [];
 
-        $discount_pct = [];
-        foreach ( $sale_ids as $id ) {
-            $product = wc_get_product( $id );
-            if ( ! $product || 'publish' !== get_post_status( $id ) ) continue;
+        global $wpdb;
 
-            $regular = (float) $product->get_regular_price();
-            $sale    = (float) $product->get_sale_price();
+        $ids_in      = implode( ',', array_map( 'intval', $sale_ids ) );
+        $rows        = $wpdb->get_results( "
+            SELECT p.ID,
+                   MAX( CASE WHEN pm.meta_key = '_regular_price' THEN pm.meta_value END ) AS regular_price,
+                   MAX( CASE WHEN pm.meta_key = '_sale_price'    THEN pm.meta_value END ) AS sale_price
+            FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+            WHERE p.ID IN ({$ids_in})
+              AND p.post_type   = 'product'
+              AND p.post_status = 'publish'
+              AND pm.meta_key IN ('_regular_price', '_sale_price')
+            GROUP BY p.ID
+        " );
+
+        if ( empty( $rows ) ) return [];
+
+        $discount_pct = [];
+        foreach ( $rows as $row ) {
+            $regular = (float) $row->regular_price;
+            $sale    = (float) $row->sale_price;
             if ( $regular <= 0 || $sale <= 0 ) continue;
 
-            $discount_pct[ $id ] = ( ( $regular - $sale ) / $regular ) * 100;
+            $discount_pct[ (int) $row->ID ] = ( ( $regular - $sale ) / $regular ) * 100;
         }
 
         if ( empty( $discount_pct ) ) return [];

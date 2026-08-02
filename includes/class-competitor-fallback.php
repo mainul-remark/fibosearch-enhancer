@@ -155,12 +155,18 @@ class FSE_CompetitorFallback {
         return $products;
     }
 
+    /** @var array|null Request-level cache for the competitor map option. */
+    private static $map_cache = null;
+
     /**
      * @return array<string, string>
      */
     private function get_map(): array {
-        $custom = get_option( self::OPTION_KEY, [] );
-        return ( is_array( $custom ) && ! empty( $custom ) ) ? $custom : self::DEFAULT_MAP;
+        if ( null === self::$map_cache ) {
+            $custom            = get_option( self::OPTION_KEY, [] );
+            self::$map_cache   = ( is_array( $custom ) && ! empty( $custom ) ) ? $custom : self::DEFAULT_MAP;
+        }
+        return self::$map_cache;
     }
 
     /**

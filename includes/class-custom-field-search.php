@@ -39,19 +39,7 @@ class FSE_CustomFieldSearch {
          */
 
         // FiboSearch fires these filters only inside isAjaxSearch() — no extra guard needed.
-        add_filter( 'dgwt/wcas/native/search_query/join',      [ $this, 'add_join' ] );
         add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'add_conditions' ], 10, 3 );
-        add_filter( 'dgwt/wcas/native/search_query/search_or', [ $this, 'ensure_distinct' ], 10, 3 );
-    }
-
-    /**
-     * Add a LEFT JOIN on postmeta with a unique alias (fse_cf) so our
-     * conditions don't collide with FiboSearch's SKU join (dgwt_wcasmsku).
-     */
-    public function add_join( $join ) {
-        global $wpdb;
-        $join .= " LEFT JOIN {$wpdb->postmeta} AS fse_cf ON ({$wpdb->posts}.ID = fse_cf.post_id)";
-        return $join;
     }
 
     /**
@@ -60,6 +48,17 @@ class FSE_CustomFieldSearch {
      * _sku, etc.) all use the underscore prefix convention, so this safely
      * targets only user-defined / plugin-defined custom fields.
      *
+     * Uses a correlated EXISTS subquery against postmeta rather than joining
+     * it into the main query — an unconditional LEFT JOIN against the whole
+     * postmeta table multiplies every candidate row by however many meta
+     * rows that post has (tens of rows per product on this catalog) BEFORE
+     * any of this module's own filtering runs, and that multiplied result
+     * has to be carried through every other module's OR conditions in the
+     * same WHERE clause and then DISTINCT-deduplicated. Measured on a real
+     * search: that join was 3.5s of a 4.7s total request, the dominant cost
+     * by far. EXISTS lets MySQL check postmeta per-candidate-row without
+     * ever materializing the full cross product.
+     *
      * @param string $search  Accumulated SQL for the current term's OR group.
      * @param string $like    The LIKE pattern, e.g. '%keyword%'.
      * @param object $engine  FiboSearch Search engine instance (unused).
@@ -67,36 +66,12 @@ class FSE_CustomFieldSearch {
     public function add_conditions( $search, $like, $engine ) {
         global $wpdb;
 
-        /*
-         * Manual meta_key IN() condition — commented out.
-         * Replaced by the automatic NOT LIKE '\_%' filter below.
-         *
-         * $placeholders = implode( ',', array_fill( 0, count( $this->meta_keys ), '%s' ) );
-         * $args         = array_merge( $this->meta_keys, [ $like ] );
-         * $condition = $wpdb->prepare(
-         *     "(fse_cf.meta_key IN ({$placeholders}) AND fse_cf.meta_value LIKE %s)",
-         *     $args
-         * );
-         */
-
-        // Search all public meta fields automatically (keys not starting with '_')
         // In $wpdb->prepare(): \\ = literal backslash, _ = underscore, %% = literal %
         $condition = $wpdb->prepare(
-            "(fse_cf.meta_key NOT LIKE '\\_%%' AND fse_cf.meta_value LIKE %s)",
+            "EXISTS ( SELECT 1 FROM {$wpdb->postmeta} WHERE post_id = {$wpdb->posts}.ID AND meta_key NOT LIKE '\\_%%' AND meta_value LIKE %s )",
             $like
         );
 
         return $search . " OR {$condition}";
-    }
-
-    /**
-     * The LEFT JOIN can produce duplicate rows — ensure DISTINCT is active.
-     * FiboSearch already sets DISTINCT via posts_distinct at priority 501,
-     * but this is a safety guard in case it's ever skipped.
-     */
-    public function ensure_distinct( $search, $like, $engine ) {
-        // No-op here: handled by FiboSearch's searchDistinct at priority 501.
-        // If you remove FiboSearch's distinct, add a posts_distinct hook here.
-        return $search;
     }
 }

@@ -10,8 +10,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class FSE_ScoreBoost {
 
-    public function __construct() {
+    /** @var FSE_VariationSkuSearch|null */
+    private $variation_sku;
+
+    /** @var array<int,true>|null Hash map of variation-SKU matched IDs, built once. */
+    private $sku_id_set = null;
+
+    public function __construct( $variation_sku = null ) {
         if ( fse_get_option( 'score_boost_enabled', '1' ) !== '1' ) return;
+
+        $this->variation_sku = $variation_sku;
 
         add_filter( 'dgwt/wcas/search_results/product/score', [ $this, 'boost' ], 10, 4 );
     }
@@ -23,6 +31,11 @@ class FSE_ScoreBoost {
      * @param \WP_Post $post     Product post object.
      */
     public function boost( $score, $keyword, $post_id, $post ) {
+        // Push out-of-stock products to the bottom regardless of relevance.
+        if ( get_post_meta( $post_id, '_stock_status', true ) === 'outofstock' ) {
+            $score -= 10000;
+        }
+
         $keyword_lower = strtolower( trim( $keyword ) );
         $title_lower   = strtolower( $post->post_title );
 
@@ -42,22 +55,18 @@ class FSE_ScoreBoost {
             $score += 40;
         }
 
-        // Any variation SKU contains keyword
-        $variation_ids = get_posts( [
-            'post_type'      => 'product_variation',
-            'post_parent'    => $post_id,
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-            'suppress_filters' => true,
-        ] );
-
-        foreach ( (array) $variation_ids as $vid ) {
-            $vsku = (string) get_post_meta( $vid, '_sku', true );
-            if ( $vsku && stripos( $vsku, $keyword ) !== false ) {
+        // Any variation SKU contains keyword — reuses FSE_VariationSkuSearch's
+        // own once-per-phrase lookup (same keyword, same request) instead of
+        // running a fresh get_posts() query per product here, which this
+        // per-product score hook fires for every raw result (50-300+ times
+        // on a broad search) — see FSE_FieldWeightScore for the established
+        // pattern this mirrors.
+        if ( $this->variation_sku ) {
+            if ( null === $this->sku_id_set ) {
+                $this->sku_id_set = array_fill_keys( $this->variation_sku->get_matched_ids(), true );
+            }
+            if ( isset( $this->sku_id_set[ $post_id ] ) ) {
                 $score += 30;
-                break;
             }
         }
 

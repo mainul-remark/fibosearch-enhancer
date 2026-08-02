@@ -30,6 +30,20 @@ function fse_opt( $key, $default = '1' ) {
         <div class="fse-tab-content active" id="tab-features">
             <table class="form-table fse-table">
                 <tr>
+                    <th scope="row">Popular Searches Panel</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[popular_searches_enabled]" value="1" <?php checked( fse_opt( 'popular_searches_enabled' ) ); ?>>
+                            Show <strong>popular search suggestions</strong> when the search box is focused
+                        </label>
+                        <p class="description">Displays the top searched keywords (from FiboSearch Analytics) as clickable chips above the recent-searches list. Requires FiboSearch Analytics to be enabled. Chips update hourly.</p>
+                        <br>
+                        <label><strong>Manual keywords</strong></label>
+                        <textarea name="fse_settings[popular_searches_manual]" rows="3" style="width:100%;max-width:500px;margin-top:4px;font-size:13px;" placeholder="lipstick, foundation, serum"><?php echo esc_textarea( fse_get_option( 'popular_searches_manual', '' ) ); ?></textarea>
+                        <p class="description">Comma-separated keywords. When filled, <strong>only these keywords</strong> are shown — analytics-based suggestions are skipped. Leave empty to use auto-detected popular searches from FiboSearch Analytics instead.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row">Variation SKU Search</th>
                     <td>
                         <label>
@@ -157,6 +171,16 @@ function fse_opt( $key, $default = '1' ) {
                             Log search terms that <strong>return no results</strong>
                         </label>
                         <p class="description">View logged terms under the Insights tab — use them to decide what synonyms or taxonomy terms to add.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Search Behavior Tracking</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="fse_settings[behavior_tracking_enabled]" value="1" <?php checked( fse_opt( 'behavior_tracking_enabled' ) ); ?>>
+                            Enable search behavior tracking
+                        </label>
+                        <p class="description">Collects search impressions, clicks, cart-adds, and purchases to power future ranking improvements. Required for any of the upcoming ranking/analytics phases.</p>
                     </td>
                 </tr>
                 <tr>
